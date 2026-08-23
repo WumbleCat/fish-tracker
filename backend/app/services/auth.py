@@ -43,15 +43,40 @@ def generate_join_code() -> str:
     return "".join(secrets.choice(JOIN_CODE_ALPHABET) for _ in range(6))
 
 
+_jwk_client: jwt.PyJWKClient | None = None
+
+
+def _jwks() -> jwt.PyJWKClient:
+    global _jwk_client
+    if _jwk_client is None:
+        _jwk_client = jwt.PyJWKClient(
+            f"{get_settings().supabase_url}/auth/v1/.well-known/jwks.json",
+            cache_keys=True,
+        )
+    return _jwk_client
+
+
 def decode_token(token: str) -> dict:
+    """Two signature schemes reach us: HS256 with the legacy shared secret
+    (our own guest tokens, and legacy Supabase access tokens), and the
+    asymmetric keys newer Supabase Auth signs with, verified via JWKS."""
     try:
+        header = jwt.get_unverified_header(token)
+        if header.get("alg") == "HS256":
+            return jwt.decode(
+                token,
+                get_settings().supabase_jwt_secret,
+                algorithms=["HS256"],
+                audience="authenticated",
+            )
+        signing_key = _jwks().get_signing_key_from_jwt(token)
         return jwt.decode(
             token,
-            get_settings().supabase_jwt_secret,
-            algorithms=["HS256"],
+            signing_key.key,
+            algorithms=["ES256", "RS256"],
             audience="authenticated",
         )
-    except jwt.InvalidTokenError:
+    except (jwt.InvalidTokenError, jwt.PyJWKClientError):
         raise AppError("invalid_token", 401)
 
 
