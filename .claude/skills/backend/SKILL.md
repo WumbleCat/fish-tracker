@@ -35,7 +35,7 @@ Domain rules live in `app-logic`. This skill is how those rules become schema, p
 | Driver | `psycopg[binary]` via the Supabase session pooler |
 | Env | `uv`, Python 3.11+ |
 | Tests | pytest + `httpx.AsyncClient` against a Supabase branch or local `supabase start` |
-| Hosting | **Local only for now** — `uvicorn` on the host machine. See "Running it" |
+| Hosting | **Vercel** (serverless Python, decided 2026-08-23) — `backend/api/index.py` + `vercel.json`; local dev stays `uvicorn` |
 
 ### Why SQL migrations and not Alembic
 
@@ -45,7 +45,7 @@ SQLAlchemy models are hand-maintained to match. Keep them honest with a test tha
 
 ## Running it
 
-The backend runs on the developer machine and talks to the hosted Supabase project. There is no deployed API yet; deployment target is an open decision, so do not add Dockerfiles, Vercel config or CI deploy steps until it is made.
+The deployment target is **decided (2026-08-23): Vercel**, serverless Python via `backend/api/index.py` with `vercel.json` rewriting every path into the ASGI app and `requirements.txt` as the deploy manifest (hand-kept in step with `pyproject.toml`). On Vercel the engine uses NullPool and disables psycopg prepared statements (PgBouncer). Env vars live in the Vercel dashboard. Local development still runs against the local stack:
 
 ```
 uv run uvicorn app.main:app --reload --port 8000

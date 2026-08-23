@@ -1,0 +1,8 @@
+# Vercel deploy manifest — kept in step with pyproject.toml by hand; the
+# serverless runtime reads this, uv reads pyproject. uvicorn is dev-only.
+fastapi>=0.115
+sqlalchemy>=2.0.30
+psycopg[binary]>=3.2
+pydantic>=2.7
+pydantic-settings>=2.3
+pyjwt[crypto]>=2.8

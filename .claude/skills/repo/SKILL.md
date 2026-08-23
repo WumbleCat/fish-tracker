@@ -106,7 +106,7 @@ Secrets live in `.env` files, which are gitignored. `.env.example` is committed 
 
 Client-side variables need the framework's public prefix (`VITE_` for web, `EXPO_PUBLIC_` for mobile). Anything without that prefix must never be referenced from client code — check the prefix before adding a variable, not after a key leaks into a bundle.
 
-There is **no deployed environment yet**. The backend runs locally against the hosted Supabase project:
+The **backend deploys to Vercel** (decided 2026-08-23) as a serverless Python app rooted at `backend/`; its env vars are set in the Vercel dashboard, never committed. Web and mobile deployment targets are still open. Local development runs everything on the developer machine:
 
 ```
 cd backend && uv run uvicorn app.main:app --reload --port 8000
@@ -114,7 +114,7 @@ cd web     && npm run dev
 cd mobile  && npx expo start
 ```
 
-Don't add Dockerfiles, hosting config or deploy pipelines until the deployment target is chosen. Vercel and Supabase MCP servers are configured in `.mcp.json` and are for inspecting the project, not a decision that anything is deployed there.
+Don't add hosting config for web or mobile until their targets are chosen. Vercel and Supabase MCP servers are configured in `.mcp.json`.
 
 ## Migrations
 
