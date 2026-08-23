@@ -1,0 +1,69 @@
+/** Past games plus per-currency lifetime net — never summed across
+ * currencies; there is no FX in this product. */
+
+import { router, Stack } from 'expo-router';
+import { FlatList, Pressable, Text, View } from 'react-native';
+
+import { AmountText } from '../components/AmountText';
+import { useAuth } from '../lib/auth';
+import { useGames, useHistory } from '../lib/queries';
+
+export default function Sessions() {
+  const { status } = useAuth();
+  const { data: games } = useGames(status === 'registered');
+  const { data: history } = useHistory(status === 'registered');
+
+  return (
+    <View style={{ flex: 1, padding: 16, gap: 12 }}>
+      <Stack.Screen
+        options={{
+          title: 'Sessions',
+          headerRight: () => (
+            <Pressable onPress={() => router.push('/settings')} style={{ minHeight: 44, justifyContent: 'center' }}>
+              <Text style={{ color: '#9fb0a8' }}>Settings</Text>
+            </Pressable>
+          ),
+        }}
+      />
+      {history?.currencies.map((c) => (
+        <View
+          key={c.currency}
+          style={{ backgroundColor: '#111a16', borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center' }}
+        >
+          <Text style={{ color: '#9fb0a8' }}>
+            {c.currency} lifetime · {c.games_played} game{c.games_played === 1 ? '' : 's'}
+          </Text>
+          <View style={{ flex: 1 }} />
+          <AmountText
+            minor={c.net_minor + c.adjustments_minor}
+            currency={c.currency}
+            exponent={c.currency_exponent}
+            signed
+            bold
+          />
+        </View>
+      ))}
+      <FlatList
+        data={games ?? []}
+        keyExtractor={(g) => g.id}
+        ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+        renderItem={({ item }) => (
+          <Pressable
+            onPress={() => router.push(`/game/${item.id}`)}
+            style={{ backgroundColor: '#111a16', borderRadius: 12, padding: 14, minHeight: 44 }}
+          >
+            <Text style={{ color: '#e7ece9', fontWeight: '600' }}>{item.name}</Text>
+            <Text style={{ color: '#9fb0a8', fontSize: 12 }}>
+              {item.state} · {item.currency} · {new Date(item.created_at).toLocaleDateString()}
+            </Text>
+          </Pressable>
+        )}
+        ListEmptyComponent={
+          <Text style={{ color: '#9fb0a8' }}>
+            No games yet. Create one on the web app, or join with a code from your host.
+          </Text>
+        }
+      />
+    </View>
+  );
+}

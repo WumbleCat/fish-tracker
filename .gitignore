@@ -77,3 +77,4 @@ supabase/.temp/
 
 # TypeScript incremental build state
 *.tsbuildinfo
+mobile/dist/

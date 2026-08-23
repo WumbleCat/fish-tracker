@@ -4,6 +4,7 @@ from app.deps import CurrentPrincipal, DbSession
 from app.schemas.users import (
     HistoryOut,
     PayoutDetailsIn,
+    PushTokenIn,
     UserOut,
     UserUpdate,
 )
@@ -47,3 +48,10 @@ def put_payout_details(
 @router.get("/me/history", response_model=HistoryOut)
 def history(session: DbSession, principal: CurrentPrincipal):
     return HistoryOut(currencies=users_service.lifetime_history(session, principal))
+
+
+@router.post("/me/push-token", status_code=204)
+def register_push_token(
+    body: PushTokenIn, session: DbSession, principal: CurrentPrincipal
+):
+    users_service.register_push_token(session, principal, body.token)
