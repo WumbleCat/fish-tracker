@@ -49,3 +49,28 @@ desktop.ini
 # Claude Code local state (shared config in .claude/ stays tracked)
 .claude/settings.local.json
 .claude/*.local.json
+
+# Node / JavaScript
+node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# Web build output
+web/dist/
+.vite/
+
+# Expo / React Native
+.expo/
+.expo-shared/
+mobile/ios/
+mobile/android/
+*.jks
+*.p8
+*.p12
+*.mobileprovision
+
+# Supabase local stack
+supabase/.branches/
+supabase/.temp/
