@@ -182,7 +182,8 @@ def log_entry(
     principal: CurrentPrincipal,
 ):
     return entries_service.log_entry(
-        session, principal, game_id, body.entry_type, body.amount_minor, body.user_id
+        session, principal, game_id, body.entry_type, body.amount_minor, body.user_id,
+        body.client_key,
     )
 
 

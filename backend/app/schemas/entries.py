@@ -11,6 +11,9 @@ class EntryCreate(BaseModel):
     amount_minor: StrictInt = Field(gt=0)
     # Host may log on a player's behalf; omitted means "for myself".
     user_id: uuid.UUID | None = None
+    # Idempotency key from the mobile offline queue: replaying the same key
+    # returns the original entry instead of logging a duplicate.
+    client_key: uuid.UUID | None = None
 
 
 class EntryActionRequest(BaseModel):

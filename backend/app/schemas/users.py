@@ -41,6 +41,10 @@ class PayoutDetailsMasked(BaseModel):
     payment_reference: str | None
 
 
+class PushTokenIn(BaseModel):
+    token: str = Field(min_length=1, max_length=400)
+
+
 class CurrencyHistory(BaseModel):
     currency: str
     currency_exponent: int

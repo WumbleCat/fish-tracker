@@ -136,6 +136,20 @@ class Entry(Base):
         UUID(as_uuid=True), ForeignKey("entries.id")
     )
     version: Mapped[int] = mapped_column(Integer, server_default=text("1"))
+    # Idempotency key from the mobile offline queue; unique per (game, user).
+    client_key: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+
+
+class PushToken(Base):
+    __tablename__ = "push_tokens"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True
+    )
+    token: Mapped[str] = mapped_column(Text, primary_key=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("now()")
+    )
 
 
 class Settlement(Base):

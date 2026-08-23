@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.errors import (
@@ -12,6 +13,7 @@ from app.errors import (
     version_conflict,
 )
 from app.models import Entry, EntryState, EntryType, Game, GameMember, GameState
+from app.services import notify
 from app.services.auth import Principal
 from app.services.games import load_member_game, require_host
 
@@ -102,6 +104,7 @@ def log_entry(
     entry_type: EntryType,
     amount_minor: int,
     target_user_id: uuid.UUID | None,
+    client_key: uuid.UUID | None = None,
 ) -> Entry:
     game = load_member_game(session, principal, game_id, for_update=True)
 
@@ -114,6 +117,19 @@ def log_entry(
         member = session.get(GameMember, (game_id, user_id))
         if member is None or member.departed_at is not None:
             raise not_found("user")
+
+    if client_key is not None:
+        # The mobile offline queue replays inserts on reconnect; the same
+        # key must collapse onto the original row, not log a second buy-in.
+        existing = session.execute(
+            select(Entry).where(
+                Entry.game_id == game_id,
+                Entry.user_id == user_id,
+                Entry.client_key == client_key,
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            return existing
 
     if entry_type == EntryType.cash_out:
         _require_live_game(game, (GameState.running, GameState.settling))
@@ -128,9 +144,35 @@ def log_entry(
         amount_minor=amount_minor,
         state=EntryState.pending,
         logged_by=principal.user.id,
+        client_key=client_key,
     )
     session.add(entry)
-    session.flush()
+    try:
+        session.flush()
+    except IntegrityError:
+        # a concurrent replay won the race; the unique index is the backstop
+        session.rollback()
+        existing = session.execute(
+            select(Entry).where(
+                Entry.game_id == game_id,
+                Entry.user_id == user_id,
+                Entry.client_key == client_key,
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            return existing
+        raise
+
+    if game.host_id != principal.user.id:
+        pending_count = session.execute(
+            select(Entry.id).where(
+                Entry.game_id == game_id, Entry.state == EntryState.pending
+            )
+        ).scalars().all()
+        title, body = notify.build_pending_entry_notification(
+            principal.user.display_name, entry_type.value, len(pending_count)
+        )
+        notify.notify_user(session, game.host_id, title, body)
     return entry
 
 

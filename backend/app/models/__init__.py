@@ -6,6 +6,7 @@ from app.models.tables import (
     Game,
     GameMember,
     PayoutDetails,
+    PushToken,
     Settlement,
     User,
 )
@@ -18,6 +19,7 @@ __all__ = [
     "MemberRole",
     "User",
     "PayoutDetails",
+    "PushToken",
     "Game",
     "GameMember",
     "Entry",

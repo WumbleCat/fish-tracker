@@ -13,6 +13,7 @@ from app.models import (
     GameMember,
     GameState,
     PayoutDetails,
+    PushToken,
     User,
 )
 from app.services.auth import Principal
@@ -87,6 +88,19 @@ def game_payout_details(
         }
         for pd, u in rows
     ]
+
+
+def register_push_token(session: Session, principal: Principal, token: str) -> None:
+    """One row per (user, device token); re-registering refreshes it. Guests
+    can register too — a guest host can't exist, but a guest's own rejected
+    entry still warrants a nudge in future; for now tokens just sit unused
+    for non-hosts."""
+    row = session.get(PushToken, (principal.user.id, token))
+    if row is None:
+        session.add(PushToken(user_id=principal.user.id, token=token))
+    else:
+        row.updated_at = datetime.now(timezone.utc)
+    session.flush()
 
 
 def lifetime_history(session: Session, principal: Principal) -> list[dict]:

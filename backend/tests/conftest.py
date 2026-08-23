@@ -39,7 +39,7 @@ def clean_db(engine):
             text(
                 "truncate table public.entries, public.settlements, "
                 "public.adjustments, public.game_members, public.payout_details, "
-                "public.games, public.users cascade"
+                "public.push_tokens, public.games, public.users cascade"
             )
         )
         conn.execute(text("delete from auth.identities"))
