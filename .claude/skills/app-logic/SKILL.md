@@ -122,7 +122,7 @@ Everything else applies to both types:
 - Timestamps are recorded for both the logging and the verification, by different actors. The gap between them is often the most useful diagnostic when a game doesn't reconcile.
 - Never auto-verify. Not below a threshold, not for the host, not after a timeout. An auto-verified entry is indistinguishable in the data from a checked one, which makes every verified entry mean less.
 
-A player may hold at most **one live cash-out** (`pending` or `verified`) at a time. Two live cash-outs would silently double their settleable position. A player who cashes out and then rebuys is normal — the rebuy is a new buy-in and their verified cash-out stands.
+A player may hold at most **one pending cash-out** at a time, and may log a new cash-out only when every verified cash-out they already hold predates a later verified buy-in or rebuy. Two live cash-outs against the same sitting would silently double their settleable position. A player who cashes out and then rebuys is normal — the rebuy is a new buy-in, their verified cash-out stands, and the rebuy opens a fresh cash-out slot (decided 2026-08-23; the UI reads the night as one session with multiple sit-downs, not two sessions).
 
 ## The two totals
 
@@ -187,7 +187,7 @@ A player joining mid-game is normal, not an edge case. They join at `running`, a
 
 A player may leave a game only when their position is settled: all entries resolved, cash-out verified. A player with pending entries who leaves stays on the roster as `departed_unsettled` and blocks close until resolved.
 
-Host transfer must exist. Hosts go to the shop, or bust out and lose interest, and a game that can't be closed because one person left is a real failure. Any current **registered** player can be made host by the current host; if the host is absent, a majority of active registered players can claim it. Guests are never eligible.
+Host transfer must exist. Hosts go to the shop, or bust out and lose interest, and a game that can't be closed because one person left is a real failure. Any current **registered** player can be made host by the current host. Guests are never eligible. A majority-claim path for when the host is absent was considered and **deferred** (decided 2026-08-23) — v1 ships host-initiated transfer only; if an absent host strands a game, that is raised as product feedback rather than solved with an invented mechanism.
 
 ## Concurrency
 
@@ -220,11 +220,11 @@ Enforce on the server. Client-side checks are a UX affordance, not a control.
 
 Also out of scope until explicitly asked for: FX conversion, cross-currency lifetime totals, chip-denomination tracking, per-hand history, staking or backing arrangements.
 
-## Open questions to raise rather than assume
+## Formerly open questions — decided 2026-08-23
 
-If a task touches any of these and the answer isn't already decided, ask instead of inventing:
+These were open; the host decided them. They are rules now, not suggestions:
 
-- What happens to a guest's record if the game is abandoned before they claim it?
-- Should an adjustment against a closed game appear in lifetime history, and does it move the original settlement's numbers or sit beside them?
-- Does a player who rebuys after a verified cash-out get a fresh cash-out slot, and should the UI read that as one session or two?
-- How long after close do payout details stay visible to the other players in that game?
+- **Abandoned games and guests.** A guest's row and entries in an abandoned game persist forever (nothing is deleted), and the claim link keeps working indefinitely — there is no settlement to protect, so there is no reason to expire the claim.
+- **Adjustments after close.** An adjustment is a separate record beside the closed game's settlement; the original settlement is never altered. Adjustments appear in lifetime history as their own line. v1 carries the schema and a read-only rendering only — no adjustment-creation UI yet.
+- **Cash-out then rebuy.** Yes — a rebuy after a verified cash-out opens a fresh cash-out slot (see Verification rules). The UI reads it as one session with multiple sit-downs.
+- **Payout-details visibility after close.** Co-players of a closed game can see each other's payout details until **7 days** after `closed_at`; after that, only the owner. Unclosed (including abandoned) games don't start the clock.

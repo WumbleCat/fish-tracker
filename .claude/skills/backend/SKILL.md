@@ -105,6 +105,7 @@ Tables:
 - **`game_members`** — `game_id`, `user_id`, `role`, `joined_at`, `departed_at`, `departed_unsettled`. Unique on `(game_id, user_id)`.
 - **`entries`** — `id`, `game_id`, `user_id`, `entry_type`, `amount_minor`, `state`, `created_at`, `logged_by`, `verified_by`, `verified_at`, `rejection_note`, `void_reason`, `amends_entry_id`, `version`.
 - **`settlements`** — `id`, `game_id`, `computed_at`, `payments` (JSONB), `discrepancy_minor`, `acknowledged_by`. Written once at close.
+- **`adjustments`** — `id`, `game_id`, `user_id`, `direction` (`credit`/`debit`), `amount_minor`, `note`, `created_by`, `created_at`. Corrections against a **closed** game (decided 2026-08-23): they sit beside the original settlement, never alter it, and appear in lifetime history as their own line. Write-once, host-created, v1 renders them read-only.
 
 `amount_minor` replaces the earlier `amount_pence` (likewise `stake_minor`, `discrepancy_minor`). The rename is the point: with per-game currency, a column called `pence` is a lie waiting to be believed. Every amount is interpreted against its game's `currency_exponent` — never against a hard-coded 2.
 
@@ -117,10 +118,10 @@ ALTER TABLE entries ADD CONSTRAINT verified_fields_together
 
 CREATE UNIQUE INDEX one_active_cashout
   ON entries (game_id, user_id)
-  WHERE entry_type = 'cash_out' AND state IN ('pending', 'verified');
+  WHERE entry_type = 'cash_out' AND state = 'pending';
 ```
 
-That partial unique index is the one to get right — it's what stops a player having two live cash-outs, which would otherwise silently double their settleable position.
+That partial unique index is the one to get right — it's what stops a player having two live cash-outs, which would otherwise silently double their settleable position. An earlier draft included `'verified'` in the predicate; that contradicted `app-logic` (a rebuy after a verified cash-out opens a fresh cash-out slot — decided 2026-08-23) and this skill's own test list, so the index now covers `pending` only. The other half of the rule is service-layer: reject a new cash-out unless every existing verified cash-out predates a later verified buy-in or rebuy — that check depends on row ordering, which an index can't express.
 
 The old `amends_only_rejected CHECK (amends_entry_id IS NULL OR entry_type <> 'cash_out')` is **removed**. It existed when cash-outs weren't verifiable; now that they are rejectable, they must also be amendable. The rule it was reaching for — you may only amend a rejected entry — is a service-layer check, because it depends on the target row's state.
 
@@ -133,7 +134,7 @@ Currency immutability is enforced in the service layer and by trigger: reject an
 Enable RLS on every table in `public`. The backend uses the service role and bypasses it; these policies exist for direct client reads and Realtime subscriptions.
 
 - `games`, `game_members`, `entries` — readable by any user who has a `game_members` row for that `game_id`. Write access: none. All writes go through the API, so clients get `SELECT` only.
-- `payout_details` — readable by the owner, and by users who share a game with the owner where that game is not yet closed (plus a grace window after close, once that window is decided — it's an open question in `app-logic`). Writable by the owner only. This is the one policy to review most carefully; it is the only table holding data that is harmful if it leaks.
+- `payout_details` — readable by the owner, and by users who share a game with the owner where that game is not yet closed, plus a grace window of **7 days after `closed_at`** (decided 2026-08-23). Writable by the owner only. This is the one policy to review most carefully; it is the only table holding data that is harmful if it leaks.
 - `users` — a member of a shared game may read `id`, `display_name`, `is_guest`. Nothing else.
 - Guest tokens hit the same policies; because a guest's token names one `game_id`, add that check to the membership predicate rather than trusting the row alone.
 
@@ -149,7 +150,9 @@ POST   /api/games                        create (creator becomes host), body inc
 GET    /api/games/{id}                   full state: members, entries, totals, live nets
 POST   /api/games/join                   body: {join_code}
 POST   /api/games/{id}/state             body: {to: GameState}
-POST   /api/games/{id}/transfer-host     body: {user_id}
+POST   /api/games/{id}/transfer-host    body: {user_id}
+POST   /api/games/{id}/leave             settled position only, else departed_unsettled
+POST   /api/games/{id}/members/{user_id}/remove   host only
 PATCH  /api/games/{id}/currency          host only, zero entries only
 
 POST   /api/games/{id}/entries           log buy-in / rebuy / cash-out
@@ -166,6 +169,8 @@ PUT    /api/users/me/payout-details      owner only
 GET    /api/games/{id}/payout-details    details for members of this game, masked
 GET    /api/users/me/history             lifetime stats, grouped by currency
 ```
+
+`leave` and `members/{user_id}/remove` were missing from an earlier draft of this list even though `app-logic`'s permissions checklist requires both — added 2026-08-23 (`app-logic` wins).
 
 State changes are `POST` to a named action rather than `PATCH` on a field. A rejection isn't an edit — it's an event with an actor, a time and a reason, and modelling it as a field update loses all three.
 
