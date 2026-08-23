@@ -1,0 +1,33 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-felt-50: #f4f7f4;
+  --color-felt-800: #1d2a22;
+  --color-felt-900: #15201a;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-neutral-50 text-neutral-900 antialiased;
+}
+
+/* Every figure in a column: digits align so anomalies jump out. */
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Pending amounts read as provisional at a glance — muted and italic,
+   never sharing the net's treatment. */
+.pending-figure {
+  @apply text-amber-700/80 italic;
+}
+
+.win {
+  @apply text-emerald-700;
+}
+.loss {
+  @apply text-rose-700;
+}
