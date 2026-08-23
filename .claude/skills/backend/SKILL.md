@@ -31,7 +31,7 @@ Domain rules live in `app-logic`. This skill is how those rules become schema, p
 | Migrations | SQL files in `supabase/migrations/`, applied with the Supabase CLI |
 | Validation | Pydantic v2 |
 | Auth | Supabase Auth (registered users) + backend-minted guest JWTs |
-| Realtime | Supabase Realtime on `entries` and `game_members`, governed by RLS |
+| Realtime | Supabase Realtime on `entries`, `game_members` and `games` (state changes must reach every client live — added 2026-08-23), governed by RLS |
 | Driver | `psycopg[binary]` via the Supabase session pooler |
 | Env | `uv`, Python 3.11+ |
 | Tests | pytest + `httpx.AsyncClient` against a Supabase branch or local `supabase start` |

@@ -152,6 +152,7 @@ export default function GameScreen() {
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
           {isHost && (
             <Pressable
+              testID="verify-link"
               onPress={() => router.push(`/game/${id}/verify`)}
               style={{ minHeight: 44, justifyContent: 'center' }}
             >
@@ -161,6 +162,7 @@ export default function GameScreen() {
             </Pressable>
           )}
           <Pressable
+            testID="entries-link"
             onPress={() => router.push(`/game/${id}/entries`)}
             style={{ minHeight: 44, justifyContent: 'center' }}
           >
@@ -168,6 +170,7 @@ export default function GameScreen() {
           </Pressable>
           {(game.state === 'settling' || game.state === 'closed') && (
             <Pressable
+              testID="settle-link"
               onPress={() => router.push(`/game/${id}/settle`)}
               style={{ minHeight: 44, justifyContent: 'center' }}
             >
