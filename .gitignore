@@ -74,3 +74,6 @@ mobile/android/
 # Supabase local stack
 supabase/.branches/
 supabase/.temp/
+
+# TypeScript incremental build state
+*.tsbuildinfo
