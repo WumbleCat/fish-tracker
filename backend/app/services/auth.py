@@ -6,6 +6,7 @@ Two token shapes resolve to a `users` row:
   it; sub -> users.id directly, valid for exactly one game_id.
 """
 
+import logging
 import secrets
 import uuid
 from dataclasses import dataclass
@@ -18,6 +19,13 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.errors import AppError, guest_not_permitted, not_found
 from app.models import Game, GameMember, GameState, MemberRole, User
+
+logger = logging.getLogger(__name__)
+
+# Auth server and API can sit on different clocks (locally: the Docker VM
+# runs ahead of the host). A fresh token with iat a second in the future is
+# valid, not an attack; without leeway every first request after sign-up 401s.
+CLOCK_LEEWAY_SECONDS = 30
 
 # No 0/O/1/I — codes get read aloud across a kitchen table.
 JOIN_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -68,6 +76,7 @@ def decode_token(token: str) -> dict:
                 get_settings().supabase_jwt_secret,
                 algorithms=["HS256"],
                 audience="authenticated",
+                leeway=CLOCK_LEEWAY_SECONDS,
             )
         signing_key = _jwks().get_signing_key_from_jwt(token)
         return jwt.decode(
@@ -75,8 +84,12 @@ def decode_token(token: str) -> dict:
             signing_key.key,
             algorithms=["ES256", "RS256"],
             audience="authenticated",
+            leeway=CLOCK_LEEWAY_SECONDS,
         )
-    except (jwt.InvalidTokenError, jwt.PyJWKClientError):
+    except (jwt.InvalidTokenError, jwt.PyJWKClientError) as exc:
+        # visible in the server log: a refused token is worth a line, the
+        # token itself never is
+        logger.warning("token refused: %s: %s", type(exc).__name__, exc)
         raise AppError("invalid_token", 401)
 
 

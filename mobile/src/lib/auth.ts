@@ -4,12 +4,26 @@
  * credential. */
 
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 import { create } from 'zustand';
 
 import { api, setTokenProvider } from './api';
 import { supabase } from './supabase';
 
 const GUEST_KEY = 'fish_guest_session';
+
+// On device, credentials live in the platform keystore. The web target
+// (dev/testing only — the product ships as a phone app) falls back to
+// localStorage, where SecureStore does not exist.
+const onDevice = Platform.OS === 'ios' || Platform.OS === 'android';
+const credStore = {
+  get: (k: string) =>
+    onDevice ? SecureStore.getItemAsync(k) : Promise.resolve(globalThis.localStorage?.getItem(k) ?? null),
+  set: (k: string, v: string) =>
+    onDevice ? SecureStore.setItemAsync(k, v) : Promise.resolve(globalThis.localStorage?.setItem(k, v)),
+  delete: (k: string) =>
+    onDevice ? SecureStore.deleteItemAsync(k) : Promise.resolve(globalThis.localStorage?.removeItem(k)),
+};
 
 export interface GuestSession {
   token: string;
@@ -29,7 +43,7 @@ interface AuthState {
 
 async function readGuest(): Promise<GuestSession | null> {
   try {
-    const raw = await SecureStore.getItemAsync(GUEST_KEY);
+    const raw = await credStore.get(GUEST_KEY);
     return raw ? (JSON.parse(raw) as GuestSession) : null;
   } catch {
     return null;
@@ -65,7 +79,7 @@ export const useAuth = create<AuthState>((set, get) => ({
           token: fresh.token,
           expiresAt: fresh.expires_at,
         };
-        await SecureStore.setItemAsync(GUEST_KEY, JSON.stringify(updated));
+        await credStore.set(GUEST_KEY, JSON.stringify(updated));
         supabase.realtime.setAuth(updated.token);
         set({ guest: updated });
       } catch {
@@ -78,7 +92,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
         set({ status: 'registered', guest: null });
-        void SecureStore.deleteItemAsync(GUEST_KEY);
+        void credStore.delete(GUEST_KEY);
       } else if (get().guest == null) {
         set({ status: 'signedOut' });
       }
@@ -86,13 +100,13 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 
   startGuest: async (guest) => {
-    await SecureStore.setItemAsync(GUEST_KEY, JSON.stringify(guest));
+    await credStore.set(GUEST_KEY, JSON.stringify(guest));
     supabase.realtime.setAuth(guest.token);
     set({ status: 'guest', guest });
   },
 
   signOut: async () => {
-    await SecureStore.deleteItemAsync(GUEST_KEY);
+    await credStore.delete(GUEST_KEY);
     await supabase.auth.signOut();
     set({ status: 'signedOut', guest: null });
   },

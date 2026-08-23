@@ -2,16 +2,32 @@
  * currencies; there is no FX in this product. */
 
 import { router, Stack } from 'expo-router';
-import { FlatList, Pressable, Text, View } from 'react-native';
+import { useState } from 'react';
+import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
 
 import { AmountText } from '../components/AmountText';
+import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useGames, useHistory } from '../lib/queries';
 
 export default function Sessions() {
   const { status } = useAuth();
-  const { data: games } = useGames(status === 'registered');
+  const { data: games, refetch } = useGames(status === 'registered');
   const { data: history } = useHistory(status === 'registered');
+  const [joinCode, setJoinCode] = useState('');
+  const [joinError, setJoinError] = useState<string | null>(null);
+
+  const join = async () => {
+    setJoinError(null);
+    try {
+      const game = await api.joinGame(joinCode.toUpperCase());
+      setJoinCode('');
+      void refetch();
+      router.push(`/game/${game.id}`);
+    } catch {
+      setJoinError("Couldn't join with that code — check it with your host.");
+    }
+  };
 
   return (
     <View style={{ flex: 1, padding: 16, gap: 12 }}>
@@ -25,6 +41,41 @@ export default function Sessions() {
           ),
         }}
       />
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <TextInput
+          testID="join-code-input"
+          value={joinCode}
+          onChangeText={(t) => setJoinCode(t.toUpperCase())}
+          placeholder="Join a game by code"
+          placeholderTextColor="#5d6f66"
+          autoCapitalize="characters"
+          maxLength={6}
+          style={{
+            flex: 1,
+            backgroundColor: '#1a2620',
+            color: '#e7ece9',
+            borderRadius: 12,
+            padding: 12,
+            letterSpacing: 3,
+          }}
+        />
+        <Pressable
+          testID="join-code-button"
+          disabled={joinCode.length < 6}
+          onPress={join}
+          style={{
+            minHeight: 44,
+            paddingHorizontal: 18,
+            borderRadius: 12,
+            backgroundColor: joinCode.length < 6 ? '#24332c' : '#059669',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text style={{ color: '#fff', fontWeight: '700' }}>Join</Text>
+        </Pressable>
+      </View>
+      {joinError && <Text style={{ color: '#fb7185' }}>{joinError}</Text>}
       {history?.currencies.map((c) => (
         <View
           key={c.currency}

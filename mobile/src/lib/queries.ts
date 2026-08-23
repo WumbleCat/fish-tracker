@@ -52,8 +52,10 @@ export function useGameRealtime(gameId: string | undefined): void {
       void queryClient.invalidateQueries({ queryKey: ['game', gameId] });
       void queryClient.invalidateQueries({ queryKey: ['settlement', gameId] });
     };
+    // unique topic per mount: two screens of the same game must not
+    // grab the same channel instance (adding callbacks after subscribe throws)
     const channel = supabase
-      .channel(`game-${gameId}`)
+      .channel(`game-${gameId}-${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'entries', filter: `game_id=eq.${gameId}` },
@@ -62,6 +64,11 @@ export function useGameRealtime(gameId: string | undefined): void {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'game_members', filter: `game_id=eq.${gameId}` },
+        invalidate,
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
         invalidate,
       )
       .subscribe();
