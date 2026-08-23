@@ -191,6 +191,24 @@ Vitest plus React Testing Library. Prioritise these, because they're where a sil
 - Guest sessions render no host controls and no payout fields.
 - Payout details render masked, and the settlement clipboard summary contains no bank details.
 
+## Verifying it runs — check the logs
+
+A green test suite and a rendered screen aren't proof. Read what the platforms recorded.
+
+**Locally**, before calling a change done: the browser console clean of errors and React warnings, the network tab showing the requests you expected (and no request storm from a subscription re-firing), and the Supabase logs for the other half of the story — `query_logs` on `postgrest` for reads RLS refused, on `auth` for token failures, on `realtime` for subscriptions that dropped. An empty ledger for a legitimate player is an RLS denial that the UI renders as "no entries"; the client will never tell you that, and the log says `42501`.
+
+**When the web app is deployed to Vercel**, checking the logs is part of shipping, not a debugging step for when something breaks:
+
+- `get_deployment_build_logs` on the new deployment — a build that failed, or succeeded while dropping an env var, shows up nowhere else.
+- `get_runtime_errors` — unhandled exceptions from real sessions.
+- `get_runtime_logs` — what actually happened during a request.
+
+Check them after the deploy finishes and before telling anyone the change is live. A deployment that builds is not a deployment that works: a missing `VITE_` variable produces a bundle that compiles perfectly and then fails to reach the API at runtime, which is exactly the class of failure these logs catch and the build output doesn't.
+
+There is no deployment yet, so this applies from the first one onward. Don't add Vercel configuration to make it applicable.
+
+Never paste log output containing tokens, session identifiers or payout details anywhere. Quote the error, not the record.
+
 ## Working conventions
 
 Build in this order when adding a feature: types, then the derived computation with its test, then the component. The computation is where correctness lives; if it's written after the UI it tends to get shaped by what's convenient to render.

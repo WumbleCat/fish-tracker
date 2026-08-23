@@ -87,7 +87,7 @@ Commits are imperative and scoped: `backend: reject second live cash-out`. One l
 State what changed and why, and — for anything major — three things explicitly:
 
 1. **Which skill rules it touches**, by name. If it changes a rule rather than implementing one, the skill edit belongs in the same PR.
-2. **Test evidence** for money paths: which tests cover it, and their result. "Tests pass" without naming the ones that matter isn't evidence.
+2. **Test evidence** for money paths: which tests cover it, and their result. "Tests pass" without naming the ones that matter isn't evidence. For anything touching schema, RLS or a deployment, add what the logs and advisors said — see below.
 3. **Migration and rollback**, when schema is involved.
 
 Never push directly to `main`. Never force-push a branch someone else may have pulled.
@@ -121,6 +121,30 @@ Don't add Dockerfiles, hosting config or deploy pipelines until the deployment t
 SQL files in `supabase/migrations/`, applied with the Supabase CLI. Never edit a migration that has been applied to the shared project — write a new one.
 
 Prefer a Supabase **branch** for anything risky, and check `get_advisors` for RLS and security findings after applying policy changes. When a migration and the SQLAlchemy models change together, they go in the same PR: the schema-drift test exists to catch the case where they don't.
+
+## Checking the logs is part of being done
+
+A change is not finished when the tests pass. It is finished when the platform logs confirm it did what you think it did. Tests run against the service role and bypass RLS; a build succeeds without the environment variable it needs at runtime; a subscription fails silently and the table just stops updating. All three look like success from the outside.
+
+**Always, after applying a migration or changing RLS:**
+
+- `get_advisors` for `security` and `performance`, and fix what it flags.
+- `query_logs` on `postgres` for errors logged behind a migration that reported success.
+
+**Always, after exercising a flow end to end** — `query_logs` on the relevant Supabase service:
+
+| Service | Catches |
+|---|---|
+| `postgres` | Constraint violations, deadlocks, lock waits, slow queries |
+| `auth` | Token verification failures, expired sessions, refused guest tokens |
+| `postgrest` | Reads RLS denied — a `42501` the client renders as "no entries" |
+| `realtime` | Subscriptions that failed or dropped — the reason live nets froze |
+
+**Always, after a Vercel deployment exists and you deploy to it** — `get_deployment_build_logs`, then `get_runtime_errors` and `get_runtime_logs`, before telling anyone the change is live. Nothing is deployed yet; this applies from the first deployment onward and is not a reason to create one.
+
+The rule behind all of it: for anything touching the ledger, confirm from the platform's own record, not from the response you got back. A permission bug that returns an empty list instead of an error is the failure mode this catches, and it is the one most likely to reach a real game night unnoticed.
+
+Never paste raw log output containing tokens, connection strings, session identifiers or payout details into a PR, an issue, a commit message or a chat. Quote the error and the code; leave the record out.
 
 ## Working conventions across the repo
 

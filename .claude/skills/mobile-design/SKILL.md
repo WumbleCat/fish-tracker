@@ -164,6 +164,18 @@ Jest + React Native Testing Library, plus Maestro (or Detox) for the flows that 
 - Guest sessions render no host controls and no payout fields; a guest token from another game is rejected.
 - Reconciliation mismatch blocks the payment list until acknowledged.
 
+## Verifying it runs — check the logs
+
+The phone hides its failures better than any other client: a dropped subscription looks like a quiet table, and a refused read looks like an empty game.
+
+After exercising a flow on a device or simulator, read the **Supabase** logs rather than trusting the screen — `query_logs` on `auth` for token refreshes that failed (the guest whose session died mid-game), on `realtime` for subscriptions that dropped when the phone backgrounded or lost signal, on `postgrest` for reads RLS refused. A player seeing an empty ledger is almost always a `42501` in that last one, and the app has no way to tell you.
+
+Also check the Expo/Metro console for unhandled promise rejections — a failed write that the offline queue swallowed is invisible in the UI by design, and this is where it surfaces.
+
+The mobile app is not deployed to Vercel; it ships through Expo, so there are no Vercel logs for it. When the **API** it talks to is eventually deployed, its runtime logs are the other half of any mobile bug — see `backend`.
+
+Never paste log output containing tokens, device identifiers or payout details anywhere. Quote the error, not the record.
+
 ## Working conventions
 
 Build in this order: types, then the derived computation with its test, then the screen. Keep money maths in `lib/money.ts` and derivation in `lib/ledger.ts` — mirroring `web/`, but not shared through a package until there is a third consumer; a premature shared module tends to get bent to fit whichever client changed last.

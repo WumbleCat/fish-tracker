@@ -282,6 +282,28 @@ Coverage is weighted toward anything that could make the numbers wrong. Cover at
 - Money round-trips exactly across large values and many entries.
 - Reflected schema matches the SQLAlchemy models.
 
+## Verifying it runs — check the logs
+
+A passing test suite says the code does what you told it to. The logs say what the platform actually did. Check them; "it returned 200" is not the same as "it worked".
+
+**After every migration or RLS change**, without exception:
+
+- `get_advisors` for both `security` and `performance`. A new table with RLS disabled, or a policy that re-evaluates `auth.uid()` per row, shows up here and nowhere else.
+- `query_logs` on the `postgres` service for errors during the apply. A migration can succeed and still log constraint or permission failures behind it.
+
+**After running a flow against the API**, read the logs rather than trusting the response:
+
+- `query_logs` on `postgres` — slow queries, constraint violations, deadlocks, lock waits on the `FOR UPDATE` in close.
+- `query_logs` on `auth` — token verification failures, expired sessions, and refused guest tokens. When a client reports being logged out at the table, this is where the answer is.
+- `query_logs` on `postgrest` — direct client reads that RLS refused. A silently empty ledger for a legitimate player is an RLS bug, and it reads as a `42501` here while the client just shows nothing.
+- `query_logs` on `realtime` — subscriptions that failed to establish or were dropped. A live net that stopped updating is usually here, not in the frontend.
+
+The failure this catches: a permission bug that returns an empty list instead of an error. The API looks healthy, the tests pass against the service role which bypasses RLS, and only the logs show the policy denying the read.
+
+**When the backend is deployed** (it isn't yet — see "Running it"), the same discipline applies to the host's logs: build logs for a failed deploy, runtime logs for what happened after, and runtime errors for unhandled exceptions. For a Vercel deployment that means `get_deployment_build_logs`, `get_runtime_logs` and `get_runtime_errors` against the deployment id. Do not add deploy configuration to make this true — the target is still undecided.
+
+Never paste log output containing tokens, connection strings or payout details into a PR, an issue or a chat. Quote the error, not the record.
+
 ## Working conventions
 
 Build in this order: SQL migration, SQLAlchemy model, Pydantic schema, service function with its test, then the route. The service function is where invariants live; written after the route it tends to get shaped by what's convenient to expose.
