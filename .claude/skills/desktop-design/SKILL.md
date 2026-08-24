@@ -125,6 +125,10 @@ A currency bar in the app header sets the user's default currency for **new** ga
 - Read the exponent from the game rather than assuming 2. A JPY game has no decimal places and must not render `¥1000.00`.
 - Lifetime history is grouped per currency, never summed across currencies. There is no FX in this product.
 
+## Light and dark mode (added 2026-08-24)
+
+Components use the Tailwind palette directly (`bg-white`, `text-neutral-500`, `bg-amber-50`…) and never `dark:` variants. Dark mode is one block in `index.css`: under `.dark` the palette's CSS variables are re-pointed (neutrals invert, status tints move to dark backgrounds and light text), and Tailwind v4 utilities read those variables at runtime, so every surface follows. `lib/theme.ts` owns the choice (light / dark / system, persisted as `fish-theme`), `ThemeToggle` sits in the header (and top-right of the landing page), and `index.html` applies the saved theme inline before first paint so there is no white flash. When adding a colour, pick it from the palette — a hard-coded hex will not follow the theme. Sign and pending colours must stay distinguishable in both modes, and colour is still never the only signal.
+
 ## Numeric display
 
 Every figure that appears in a column uses tabular numerals: `font-variant-numeric: tabular-nums`, or Tailwind's `tabular-nums`. Digits then align vertically, which makes an anomalous total visible at a glance. Proportional numerals hide exactly the errors this app exists to catch.

@@ -4,6 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>fish-tracker</title>
+    <script>
+      // Apply the saved theme before first paint so a dark-mode user never
+      // sees a white flash. Mirrors lib/theme.ts; keep the two in step.
+      (function () {
+        try {
+          var saved = localStorage.getItem('fish-theme');
+          var dark =
+            saved === 'dark' ||
+            (saved !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (dark) document.documentElement.classList.add('dark');
+        } catch (e) {
+          /* storage unavailable: fall through to light */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

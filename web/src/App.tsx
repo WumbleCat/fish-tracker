@@ -5,6 +5,7 @@ import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { CurrencyBar } from './components/CurrencyBar';
 import { GuestBadge } from './components/GuestBadge';
 import { ShortcutsHelp } from './components/ShortcutsHelp';
+import { ThemeToggle } from './components/ThemeToggle';
 import { useAuth } from './lib/auth';
 import { prefetchNav, useGame, useMe } from './lib/queries';
 import { useShortcuts } from './lib/shortcuts';
@@ -55,6 +56,7 @@ function Header() {
         {status === 'registered' && me && (
           <CurrencyBar value={me.default_currency} inGameCurrency={game?.currency} />
         )}
+        <ThemeToggle />
         <button onClick={() => setHelpOpen(true)} className="text-xs text-neutral-400" title="Keyboard shortcuts">
           ?
         </button>
@@ -74,6 +76,12 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen px-6 py-4">
         <Header />
+        {status === 'signedOut' && (
+          // the landing page has no header; the theme is still a choice there
+          <div className="flex justify-end">
+            <ThemeToggle />
+          </div>
+        )}
         <Routes>
           <Route
             path="/"
