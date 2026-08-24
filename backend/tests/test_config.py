@@ -137,3 +137,22 @@ def test_postgres_url_fallback_applies_when_database_url_is_local(monkeypatch):
         "postgresql+psycopg://postgres.ref:pw@aws-0-x.pooler.supabase.com:6543/postgres"
     )
     assert s.database_url.endswith("sslmode=require")
+    assert s.database_url_source == "POSTGRES_URL"
+
+
+def test_postgres_url_fallback_applies_when_database_url_is_not_a_url(monkeypatch):
+    # seen live: DATABASE_URL set to a bare 20-char non-URL value
+    monkeypatch.setenv(
+        "POSTGRES_URL",
+        "postgres://postgres.ref:pw@aws-0-x.pooler.supabase.com:6543/postgres",
+    )
+    s = Settings(database_url="just-a-password-1234")
+    assert s.database_url_source == "POSTGRES_URL"
+    assert "pooler.supabase.com" in s.database_url
+
+
+def test_real_database_url_is_not_overridden(monkeypatch):
+    monkeypatch.setenv("POSTGRES_URL", "postgres://x:y@other.example.com:6543/postgres")
+    s = Settings(database_url="postgres://u:p@db.example.com:5432/postgres")
+    assert "db.example.com" in s.database_url
+    assert s.database_url_source == "DATABASE_URL/default"

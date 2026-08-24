@@ -1,3 +1,4 @@
+import logging
 import os
 from functools import lru_cache
 from urllib.parse import quote, unquote
@@ -6,6 +7,8 @@ from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import ArgumentError
+
+logger = logging.getLogger(__name__)
 
 PG_PREFIXES = ("postgresql+psycopg://", "postgresql://", "postgres://")
 
@@ -137,12 +140,23 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _apply_integration_fallbacks(self):
-        # DATABASE_URL wins when set; otherwise the Supabase<->Vercel
-        # integration's POSTGRES_URL (pooled) or POSTGRES_URL_NON_POOLING.
-        if "127.0.0.1" in self.database_url or "localhost" in self.database_url:
+        # DATABASE_URL wins when set to an actual URL; otherwise — unset,
+        # the local default, or a mispasted non-URL value (seen live: a
+        # bare 20-char string) — the Supabase<->Vercel integration's
+        # POSTGRES_URL (pooled) or POSTGRES_URL_NON_POOLING takes over.
+        current = self.database_url.strip().strip("'\"")
+        is_local_default = "127.0.0.1" in current or "localhost" in current
+        not_a_url = "://" not in current
+        if is_local_default or not_a_url:
             for var in ("POSTGRES_URL", "POSTGRES_URL_NON_POOLING"):
                 injected = os.environ.get(var)
                 if injected and injected.strip():
+                    if not_a_url:
+                        logger.warning(
+                            "DATABASE_URL is set but is not a URL (len=%d) — using %s instead",
+                            len(current),
+                            var,
+                        )
                     self.database_url = injected
                     self.database_url_source = var
                     break
