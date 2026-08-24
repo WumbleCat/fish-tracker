@@ -1,10 +1,16 @@
 /** The primary screen: ledger beside the running settlement, so the effect
- * of a verification is visible without navigating. Realtime invalidates the
- * cache; every figure on screen is whatever the API last returned. */
+ * of a verification is visible without navigating.
+ *
+ * Every click lands on screen synchronously and the server is asked in the
+ * background — but the server always has the last word. Optimistic rows and
+ * in-flight overlays live in local state and are merged at render; nets,
+ * totals and settlement are only ever what the API last returned, marked
+ * "syncing" until the refetch confirms. A refused write rolls back and says
+ * exactly what was undone. */
 
 import * as Popover from '@radix-ui/react-popover';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useMemo, useState } from 'react';
+import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 import { Amount } from '../components/Amount';
@@ -17,6 +23,16 @@ import { SettlementPanel } from '../components/SettlementPanel';
 import { VerifyQueue } from '../components/VerifyQueue';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { fmtMinor, toDecimalString } from '../lib/money';
+import {
+  isOptimistic,
+  mergeEntries,
+  optimisticEntry,
+  pruneOptimistic,
+  undoMessage,
+  type InFlight,
+  type InFlightAction,
+} from '../lib/optimistic';
 import {
   useGame,
   useGamePayoutDetails,
@@ -24,14 +40,30 @@ import {
   useMe,
   useSettlement,
 } from '../lib/queries';
+import { serialize } from '../lib/serialize';
 import { useShortcuts } from '../lib/shortcuts';
-import type { Entry, EntryType, GameState } from '../lib/types';
+import type { Entry, EntryType, Game, GameState, GameSummary } from '../lib/types';
 
 const NEXT_STATE: Partial<Record<GameState, { to: GameState; label: string }>> = {
   draft: { to: 'open', label: 'Open for joins' },
   open: { to: 'running', label: 'Start game' },
   running: { to: 'settling', label: 'Stop play & settle' },
   settling: { to: 'running', label: 'One more orbit' },
+};
+
+interface Notice {
+  text: string;
+  /** A rolled-back entry can be put straight back into the form. */
+  restore?: EntryDraft;
+}
+
+const reasonOf = (e: unknown): string => {
+  if (e instanceof ApiError) {
+    return e.code === 'version_conflict'
+      ? 'it changed under you (showing the latest)'
+      : e.code.replaceAll('_', ' ');
+  }
+  return 'network error';
 };
 
 export function Session() {
@@ -52,86 +84,234 @@ export function Session() {
 
   const isHost = !!game && game.host_id === meId;
   const [entryFormOpen, setEntryFormOpen] = useState(false);
-  const [entryDefaults, setEntryDefaults] = useState<{ type: EntryType; userId?: string }>({
-    type: 'buy_in',
-  });
+  const [entryDefaults, setEntryDefaults] = useState<{
+    type: EntryType;
+    userId?: string;
+    amount?: string;
+  }>({ type: 'buy_in' });
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [queueUserId, setQueueUserId] = useState<string | null>(null);
-  const [conflict, setConflict] = useState<string | null>(null);
-  const onQueueSelect = useCallback((entry: Entry | null) => setQueueUserId(entry?.user_id ?? null), []);
-
-  const invalidate = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: ['game', id] });
-    void queryClient.invalidateQueries({ queryKey: ['settlement', id] });
-  }, [queryClient, id]);
-
-  const onApiError = useCallback(
-    (e: unknown) => {
-      if (e instanceof ApiError && e.code === 'version_conflict') {
-        // the entry changed under us: refetch, show what it is now, let the
-        // user redo the action — never retry silently
-        invalidate();
-        setConflict('That entry changed under you. Showing the latest — redo the action if it still applies.');
-        setTimeout(() => setConflict(null), 6000);
-      } else if (e instanceof ApiError) {
-        setConflict(`Action refused: ${e.code.replaceAll('_', ' ')}`);
-        setTimeout(() => setConflict(null), 6000);
-      }
-    },
-    [invalidate],
-  );
-
-  const logEntry = useMutation({
-    mutationFn: (draft: EntryDraft) =>
-      api.logEntry(id!, {
-        entry_type: draft.entryType,
-        amount_minor: draft.amountMinor,
-        ...(draft.userId !== meId ? { user_id: draft.userId } : {}),
-      }),
-    onSuccess: invalidate,
-    onError: onApiError,
-  });
-  const verify = useMutation({
-    mutationFn: (entry: Entry) => api.verify(entry.id, entry.version),
-    onSuccess: invalidate,
-    onError: onApiError,
-  });
-  const reject = useMutation({
-    mutationFn: ({ entry, note }: { entry: Entry; note: string | null }) =>
-      api.reject(entry.id, note ?? undefined, entry.version),
-    onSuccess: invalidate,
-    onError: onApiError,
-  });
-  const voidEntry = useMutation({
-    mutationFn: ({ entry, reason }: { entry: Entry; reason: string }) =>
-      api.voidEntry(entry.id, reason, entry.version),
-    onSuccess: invalidate,
-    onError: onApiError,
-  });
-  const amend = useMutation({
-    mutationFn: ({ entry, amountMinor }: { entry: Entry; amountMinor: number }) =>
-      api.amend(entry.id, amountMinor, entry.version),
-    onSuccess: invalidate,
-    onError: onApiError,
-  });
-  const changeState = useMutation({
-    mutationFn: (to: GameState) => api.changeState(id!, to, game?.version),
-    onSuccess: invalidate,
-    onError: onApiError,
-  });
-  const close = useMutation({
-    mutationFn: (acknowledge: boolean) => api.close(id!, acknowledge, game?.version),
-    onSuccess: invalidate,
-    onError: onApiError,
-  });
-
-  const openEntryForm = useCallback(
-    (type: EntryType, userId?: string) => {
-      setEntryDefaults({ type, userId });
-      setEntryFormOpen(true);
-    },
+  const onQueueSelect = useCallback(
+    (entry: Entry | null) => setQueueUserId(entry?.user_id ?? null),
     [],
   );
+
+  // --- instant UI state: claims and overlays, never money ---------------
+  const [optimistic, setOptimistic] = useState<Entry[]>([]);
+  const [inflight, setInflight] = useState<InFlight>({});
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const writesInFlight = useIsMutating({ mutationKey: ['game', id, 'write'] });
+
+  // server rows replace optimistic ones as they land
+  useEffect(() => {
+    if (game) setOptimistic((rows) => pruneOptimistic(rows, game.entries));
+  }, [game]);
+
+  useEffect(() => {
+    if (!notice || notice.restore) return;
+    const timer = setTimeout(() => setNotice(null), 8000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
+  const view = useMemo(
+    () => (game ? { ...game, entries: mergeEntries(game.entries, optimistic) } : null),
+    [game, optimistic],
+  );
+
+  const cancelReads = useCallback(async () => {
+    // a stale response must not land on top of what the user just did
+    await Promise.all([
+      queryClient.cancelQueries({ queryKey: ['game', id] }),
+      queryClient.cancelQueries({ queryKey: ['settlement', id] }),
+    ]);
+  }, [queryClient, id]);
+
+  const reconcile = useCallback(
+    async (entryId?: string) => {
+      // refetch server truth; only once it has landed does the overlay come
+      // off, so a row never flickers back to its old state in between
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['game', id] }),
+        queryClient.invalidateQueries({ queryKey: ['settlement', id] }),
+      ]);
+      if (entryId) {
+        setInflight((m) => {
+          const { [entryId]: _gone, ...rest } = m;
+          return rest;
+        });
+      }
+    },
+    [queryClient, id],
+  );
+
+  const describe = useCallback(
+    (userId: string, amountMinor: number, entryType: EntryType | null) => {
+      const g = queryClient.getQueryData<Game>(['game', id]);
+      return {
+        name: g?.members.find((m) => m.user_id === userId)?.display_name ?? 'unknown',
+        amount: g ? fmtMinor(amountMinor, g.currency, g.currency_exponent) : String(amountMinor),
+        entryType,
+      };
+    },
+    [queryClient, id],
+  );
+
+  type LogVars = EntryDraft & { clientKey: string };
+  const logEntry = useMutation({
+    mutationKey: ['game', id, 'write'],
+    mutationFn: (draft: LogVars) =>
+      serialize(`game:${id}:log`, () =>
+        api.logEntry(id!, {
+          entry_type: draft.entryType,
+          amount_minor: draft.amountMinor,
+          client_key: draft.clientKey,
+          ...(draft.userId !== meId ? { user_id: draft.userId } : {}),
+        }),
+      ),
+    onMutate: async (draft) => {
+      setOptimistic((rows) => [
+        ...rows,
+        optimisticEntry({
+          clientKey: draft.clientKey,
+          gameId: id!,
+          userId: draft.userId,
+          loggedBy: meId ?? draft.userId,
+          entryType: draft.entryType,
+          amountMinor: draft.amountMinor,
+        }),
+      ]);
+      await cancelReads();
+    },
+    onError: (e, draft) => {
+      setOptimistic((rows) => rows.filter((r) => r.client_key !== draft.clientKey));
+      setNotice({
+        text: undoMessage({
+          action: 'log',
+          ...describe(draft.userId, draft.amountMinor, draft.entryType),
+          reason: reasonOf(e),
+        }),
+        restore: draft,
+      });
+    },
+    onSettled: () => reconcile(),
+  });
+
+  // One shape for every per-entry action: overlay on, request serialised per
+  // entry, overlay off only after the refetch, rollback with a specific message.
+  const entryAction = <V extends { entry: Entry }>(
+    action: InFlightAction,
+    run: (vars: V) => Promise<unknown>,
+    extra?: { onMutate?: (vars: V) => void; onError?: (vars: V) => void },
+  ) => ({
+    mutationKey: ['game', id, 'write'],
+    mutationFn: (vars: V) => serialize(`entry:${vars.entry.id}`, () => run(vars)),
+    onMutate: async (vars: V) => {
+      setInflight((m) => ({ ...m, [vars.entry.id]: action }));
+      extra?.onMutate?.(vars);
+      await cancelReads();
+    },
+    onError: (e: unknown, vars: V) => {
+      setInflight((m) => {
+        const { [vars.entry.id]: _gone, ...rest } = m;
+        return rest;
+      });
+      extra?.onError?.(vars);
+      setNotice({
+        text: undoMessage({
+          action,
+          ...describe(vars.entry.user_id, vars.entry.amount_minor, vars.entry.entry_type),
+          reason: reasonOf(e),
+        }),
+      });
+    },
+    onSettled: (_data: unknown, _error: unknown, vars: V) => reconcile(vars.entry.id),
+  });
+
+  const verify = useMutation(
+    entryAction<{ entry: Entry }>('verify', ({ entry }) => api.verify(entry.id, entry.version)),
+  );
+  const reject = useMutation(
+    entryAction<{ entry: Entry; note: string | null }>('reject', ({ entry, note }) =>
+      api.reject(entry.id, note ?? undefined, entry.version),
+    ),
+  );
+  const voidEntry = useMutation(
+    entryAction<{ entry: Entry; reason: string }>('void', ({ entry, reason }) =>
+      api.voidEntry(entry.id, reason, entry.version),
+    ),
+  );
+  const amend = useMutation(
+    entryAction<{ entry: Entry; amountMinor: number; clientKey: string }>(
+      'amend',
+      ({ entry, amountMinor, clientKey }) =>
+        api.amend(entry.id, amountMinor, entry.version, clientKey),
+      {
+        // the correction is a new pending row — shown at once under its key
+        onMutate: ({ entry, amountMinor, clientKey }) =>
+          setOptimistic((rows) => [
+            ...rows,
+            optimisticEntry({
+              clientKey,
+              gameId: id!,
+              userId: entry.user_id,
+              loggedBy: meId ?? entry.user_id,
+              entryType: entry.entry_type,
+              amountMinor,
+              amendsEntryId: entry.id,
+            }),
+          ]),
+        onError: ({ clientKey }) =>
+          setOptimistic((rows) => rows.filter((r) => r.client_key !== clientKey)),
+      },
+    ),
+  );
+
+  const changeState = useMutation({
+    mutationKey: ['game', id, 'write'],
+    mutationFn: (to: GameState) =>
+      serialize(`game:${id}:state`, () =>
+        api.changeState(id!, to, queryClient.getQueryData<Game>(['game', id])?.version),
+      ),
+    onMutate: async (to) => {
+      await cancelReads();
+      const previous = queryClient.getQueryData<Game>(['game', id]);
+      if (previous)
+        queryClient.setQueryData<Game>(['game', id], {
+          ...previous,
+          state: to,
+        });
+      return { previous };
+    },
+    onError: (e, to, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(['game', id], ctx.previous);
+      setNotice({ text: `Undid state change to "${to}" — ${reasonOf(e)}.` });
+    },
+    onSettled: () => reconcile(),
+  });
+
+  // Close is the one write that is NOT optimistic: it writes the settlement
+  // snapshot people hand over cash against, so the screen shows the server's
+  // answer and nothing sooner.
+  const close = useMutation({
+    mutationKey: ['game', id, 'write'],
+    mutationFn: (acknowledge: boolean) =>
+      serialize(`game:${id}:state`, () =>
+        api.close(id!, acknowledge, queryClient.getQueryData<Game>(['game', id])?.version),
+      ),
+    onError: (e) => setNotice({ text: `Close refused — ${reasonOf(e)}.` }),
+    onSettled: () => reconcile(),
+  });
+
+  // a second click while the first is still in flight is a no-op, not a race
+  const act = (entry: Entry, run: () => void) => {
+    if (inflight[entry.id] || isOptimistic(entry)) return;
+    run();
+  };
+
+  const openEntryForm = useCallback((type: EntryType, userId?: string, amount?: string) => {
+    setEntryDefaults({ type, userId, amount });
+    setEntryFormOpen(true);
+  }, []);
 
   const shortcuts = useMemo(
     () => ({
@@ -147,42 +327,72 @@ export function Session() {
   if (gameError instanceof ApiError && gameError.code === 'game_not_found') {
     return <p className="mt-16 text-center text-neutral-500">No such game, or you're not in it.</p>;
   }
-  if (!game) return <p className="mt-16 text-center text-neutral-400">Loading…</p>;
+  if (!view) {
+    // shell first: whatever the sessions list already knows, then the data streams in
+    const summary = queryClient.getQueryData<GameSummary[]>(['games'])?.find((g) => g.id === id);
+    return (
+      <div className="mx-auto max-w-6xl">
+        <header className="mb-4 flex flex-wrap items-center gap-3">
+          <h1 className="text-xl font-semibold">{summary?.name ?? 'Loading game…'}</h1>
+          {summary && (
+            <>
+              <span className="rounded bg-neutral-200 px-2 py-0.5 text-xs font-medium">
+                {summary.state}
+              </span>
+              <span className="rounded bg-neutral-200 px-2 py-0.5 text-xs">{summary.currency}</span>
+            </>
+          )}
+        </header>
+        <p className="text-sm text-neutral-400">Loading entries…</p>
+      </div>
+    );
+  }
 
-  const { currency, currency_exponent: exponent } = game;
+  const shown = view;
+  const { currency, currency_exponent: exponent } = shown;
   const nameOf = (userId: string) =>
-    game.members.find((m) => m.user_id === userId)?.display_name ?? 'unknown';
-  const hostDetails = payoutDetails?.find((d) => d.user_id === game.host_id) ?? null;
+    shown.members.find((m) => m.user_id === userId)?.display_name ?? 'unknown';
+  const hostDetails = payoutDetails?.find((d) => d.user_id === shown.host_id) ?? null;
   // the player the host is acting on: the focused queue entry first, then
   // the ledger selection — whoever is about to be paid out
   const focusUserId = queueUserId ?? selectedUserId;
   const focusDetails =
     (focusUserId && payoutDetails?.find((d) => d.user_id === focusUserId)) || null;
   const settleableTable =
-    game.totals.verified_buy_ins_minor - game.totals.verified_cash_outs_minor;
-  const next = NEXT_STATE[game.state];
+    shown.totals.verified_buy_ins_minor - shown.totals.verified_cash_outs_minor;
+  const next = NEXT_STATE[shown.state];
+  const syncing = writesInFlight > 0 || optimistic.length > 0 || Object.keys(inflight).length > 0;
 
   return (
     <div className="mx-auto max-w-6xl">
       <header className="mb-4 flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-semibold">{game.name}</h1>
-        <span className="rounded bg-neutral-200 px-2 py-0.5 text-xs font-medium">{game.state}</span>
-        <span className="rounded bg-neutral-200 px-2 py-0.5 text-xs" title="This game's currency — fixed once entries exist">
+        <h1 className="text-xl font-semibold">{shown.name}</h1>
+        <span className="rounded bg-neutral-200 px-2 py-0.5 text-xs font-medium">
+          {shown.state}
+        </span>
+        <span
+          className="rounded bg-neutral-200 px-2 py-0.5 text-xs"
+          title="This game's currency — fixed once entries exist"
+        >
           {currency}
         </span>
-        {(game.state === 'open' || game.state === 'running') && (
+        {(shown.state === 'open' || shown.state === 'running') && (
           <span className="num text-sm text-neutral-500">
-            join code: <strong className="tracking-[0.2em]">{game.join_code}</strong>
+            join code: <strong className="tracking-[0.2em]">{shown.join_code}</strong>
           </span>
         )}
-        {hostDetails && !isGuest && game.state !== 'closed' && (
+        {hostDetails && !isGuest && shown.state !== 'closed' && (
           <Popover.Root>
             <Popover.Trigger className="rounded border border-neutral-300 px-2 py-1 text-xs text-neutral-600">
               Pay the host
             </Popover.Trigger>
             <Popover.Portal>
               <Popover.Content className="z-10 w-80" sideOffset={6}>
-                <PayoutBlock details={hostDetails} isGbp={currency === 'GBP'} title="Pay the host" />
+                <PayoutBlock
+                  details={hostDetails}
+                  isGbp={currency === 'GBP'}
+                  title="Pay the host"
+                />
               </Popover.Content>
             </Popover.Portal>
           </Popover.Root>
@@ -197,9 +407,35 @@ export function Session() {
         )}
       </header>
 
-      {conflict && (
-        <p role="alert" className="mb-3 rounded bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          {conflict}
+      {notice && (
+        <p
+          role="alert"
+          className="mb-3 flex items-center gap-3 rounded bg-amber-50 px-3 py-2 text-sm text-amber-900"
+        >
+          <span>{notice.text}</span>
+          {notice.restore && (
+            <button
+              onClick={() => {
+                const r = notice.restore!;
+                openEntryForm(
+                  r.entryType,
+                  r.userId,
+                  toDecimalString(r.amountMinor, currency, exponent),
+                );
+                setNotice(null);
+              }}
+              className="rounded border border-amber-400 px-2 py-0.5 text-xs font-medium"
+            >
+              Restore to form
+            </button>
+          )}
+          <button
+            onClick={() => setNotice(null)}
+            className="ml-auto text-xs underline"
+            aria-label="dismiss"
+          >
+            dismiss
+          </button>
         </p>
       )}
 
@@ -207,7 +443,11 @@ export function Session() {
         <span>
           Chips on the table:{' '}
           <strong>
-            <Amount minor={game.totals.chips_on_table_minor} currency={currency} exponent={exponent} />
+            <Amount
+              minor={shown.totals.chips_on_table_minor}
+              currency={currency}
+              exponent={exponent}
+            />
           </strong>
           <span className="ml-1 text-xs text-neutral-400">(includes pending)</span>
         </span>
@@ -218,37 +458,50 @@ export function Session() {
           </strong>
           <span className="ml-1 text-xs text-neutral-400">(verified only)</span>
         </span>
-        {game.totals.pending_count > 0 && (
+        {shown.totals.pending_count > 0 && (
           <span className="pending-figure text-sm">
-            {game.totals.pending_count} claim{game.totals.pending_count > 1 ? 's' : ''} awaiting
-            verification
+            {shown.totals.pending_count} claim
+            {shown.totals.pending_count > 1 ? 's' : ''} awaiting verification
+          </span>
+        )}
+        {syncing && (
+          <span
+            className="text-xs text-neutral-400"
+            aria-live="polite"
+            title="Figures update when the server confirms"
+          >
+            syncing…
           </span>
         )}
       </div>
 
       <div className="grid grid-cols-[3fr_2fr] gap-6">
         <div className="space-y-4">
-          {(game.state === 'running' || game.state === 'settling') && (
+          {(shown.state === 'running' || shown.state === 'settling') && (
             <div className="rounded border border-neutral-200 bg-white p-3">
               {entryFormOpen ? (
                 <EntryForm
-                  members={game.members}
+                  members={shown.members}
                   currency={currency}
                   exponent={exponent}
                   defaultType={entryDefaults.type}
                   defaultUserId={entryDefaults.userId ?? meId ?? undefined}
+                  defaultAmount={entryDefaults.amount}
                   allowedTypes={
-                    game.state === 'settling' ? ['cash_out'] : ['buy_in', 'rebuy', 'cash_out']
+                    shown.state === 'settling' ? ['cash_out'] : ['buy_in', 'rebuy', 'cash_out']
                   }
                   canPickPlayer={isHost}
-                  onSubmit={async (draft) => {
-                    await logEntry.mutateAsync(draft);
-                  }}
+                  onSubmit={(draft) =>
+                    logEntry.mutate({
+                      ...draft,
+                      clientKey: crypto.randomUUID(),
+                    })
+                  }
                   onCancel={() => setEntryFormOpen(false)}
                 />
               ) : (
                 <button
-                  onClick={() => openEntryForm(game.state === 'settling' ? 'cash_out' : 'buy_in')}
+                  onClick={() => openEntryForm(shown.state === 'settling' ? 'cash_out' : 'buy_in')}
                   className="text-sm text-neutral-500"
                 >
                   Log an entry — <kbd className="rounded border px-1">n</kbd> buy-in,{' '}
@@ -260,34 +513,48 @@ export function Session() {
           )}
 
           <section aria-label="players">
-            <LedgerTable game={game} selectedUserId={selectedUserId} onSelect={setSelectedUserId} />
+            <LedgerTable
+              game={shown}
+              selectedUserId={selectedUserId}
+              onSelect={setSelectedUserId}
+              reconciling={syncing}
+            />
           </section>
 
           <section>
             <h2 className="mb-1 text-xs font-medium uppercase tracking-wide text-neutral-500">
               Entry log
             </h2>
-            {game.entries.length === 0 ? (
+            {shown.entries.length === 0 ? (
               <p className="text-sm text-neutral-500">
                 No entries yet. Press <kbd className="rounded border px-1">n</kbd> to log the first
                 buy-in.
               </p>
             ) : (
               <EntryLog
-                game={game}
+                game={shown}
                 meId={meId}
                 isHost={isHost}
-                onVerify={(entry) => verify.mutate(entry)}
-                onReject={(entry) => reject.mutate({ entry, note: null })}
-                onVoid={(entry, reason) => voidEntry.mutate({ entry, reason })}
-                onAmend={(entry, amountMinor) => amend.mutate({ entry, amountMinor })}
+                inflight={inflight}
+                onVerify={(entry) => act(entry, () => verify.mutate({ entry }))}
+                onReject={(entry) => act(entry, () => reject.mutate({ entry, note: null }))}
+                onVoid={(entry, reason) => act(entry, () => voidEntry.mutate({ entry, reason }))}
+                onAmend={(entry, amountMinor) =>
+                  act(entry, () =>
+                    amend.mutate({
+                      entry,
+                      amountMinor,
+                      clientKey: crypto.randomUUID(),
+                    }),
+                  )
+                }
               />
             )}
           </section>
         </div>
 
         <div className="space-y-4">
-          {isHost && (game.state === 'running' || game.state === 'settling') && (
+          {isHost && (shown.state === 'running' || shown.state === 'settling') && (
             <>
               {focusDetails && <PlayerBankCard details={focusDetails} isGbp={currency === 'GBP'} />}
               <section className="rounded border border-neutral-200 bg-white p-3">
@@ -295,12 +562,13 @@ export function Session() {
                   Verification queue
                 </h2>
                 <VerifyQueue
-                  entries={game.entries}
+                  entries={shown.entries}
+                  inflight={inflight}
                   nameOf={nameOf}
                   currency={currency}
                   exponent={exponent}
-                  onVerify={(entry) => verify.mutate(entry)}
-                  onReject={(entry, note) => reject.mutate({ entry, note })}
+                  onVerify={(entry) => act(entry, () => verify.mutate({ entry }))}
+                  onReject={(entry, note) => act(entry, () => reject.mutate({ entry, note }))}
                   onSelect={onQueueSelect}
                   shortcutsEnabled={!entryFormOpen}
                 />
@@ -314,7 +582,7 @@ export function Session() {
                 {settlement.final ? 'Settlement' : 'Settlement preview'}
               </h2>
               <SettlementPanel
-                game={game}
+                game={shown}
                 settlement={settlement}
                 payoutDetails={isGuest ? null : (payoutDetails ?? null)}
                 isHost={isHost}

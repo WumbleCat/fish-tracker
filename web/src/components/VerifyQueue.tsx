@@ -5,12 +5,14 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { pendingEntries } from '../lib/ledger';
+import { entryKey, isOptimistic, type InFlight } from '../lib/optimistic';
 import { useShortcuts } from '../lib/shortcuts';
 import type { Entry } from '../lib/types';
 import { Amount } from './Amount';
 
 export function VerifyQueue({
   entries,
+  inflight = {},
   nameOf,
   currency,
   exponent,
@@ -20,6 +22,10 @@ export function VerifyQueue({
   shortcutsEnabled = true,
 }: {
   entries: Entry[];
+  /** Entries already acted on and awaiting the server leave the queue at
+   * once — v, v, v advances without waiting — while their state stays
+   * whatever the server last said. */
+  inflight?: InFlight;
   nameOf: (userId: string) => string;
   currency: string;
   exponent: number;
@@ -28,7 +34,10 @@ export function VerifyQueue({
   onSelect?: (entry: Entry | null) => void;
   shortcutsEnabled?: boolean;
 }) {
-  const queue = useMemo(() => pendingEntries(entries), [entries]);
+  const queue = useMemo(
+    () => pendingEntries(entries).filter((e) => !inflight[e.id]),
+    [entries, inflight],
+  );
   const [selected, setSelected] = useState(0);
   const [noteFor, setNoteFor] = useState<string | null>(null);
   const [note, setNote] = useState('');
@@ -68,7 +77,7 @@ export function VerifyQueue({
     <ul aria-label="verification queue" className="divide-y divide-neutral-200">
       {queue.map((entry, index) => (
         <li
-          key={entry.id}
+          key={entryKey(entry)}
           aria-selected={index === selected}
           onClick={() => setSelected(index)}
           className={`flex items-center gap-3 px-2 py-1.5 text-sm ${
@@ -81,20 +90,26 @@ export function VerifyQueue({
           {entry.amends_entry_id && (
             <span className="text-xs text-neutral-400">amends a rejected entry</span>
           )}
-          <span className="ml-auto flex gap-1">
-            <button
-              onClick={() => onVerify(entry)}
-              className="rounded bg-emerald-700 px-2 py-0.5 text-xs font-medium text-white"
-            >
-              Verify
-            </button>
-            <button
-              onClick={() => setNoteFor(entry.id)}
-              className="rounded border border-rose-300 px-2 py-0.5 text-xs text-rose-700"
-            >
-              Reject
-            </button>
-          </span>
+          {isOptimistic(entry) ? (
+            <span className="ml-auto text-xs text-neutral-400" aria-live="polite">
+              logging…
+            </span>
+          ) : (
+            <span className="ml-auto flex gap-1">
+              <button
+                onClick={() => onVerify(entry)}
+                className="rounded bg-emerald-700 px-2 py-0.5 text-xs font-medium text-white"
+              >
+                Verify
+              </button>
+              <button
+                onClick={() => setNoteFor(entry.id)}
+                className="rounded border border-rose-300 px-2 py-0.5 text-xs text-rose-700"
+              >
+                Reject
+              </button>
+            </span>
+          )}
           {noteFor === entry.id && (
             <form
               className="flex w-full gap-1 pt-1"

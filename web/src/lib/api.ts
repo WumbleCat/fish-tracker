@@ -96,7 +96,7 @@ export const api = {
 
   logEntry: (
     gameId: string,
-    body: { entry_type: string; amount_minor: number; user_id?: string },
+    body: { entry_type: string; amount_minor: number; user_id?: string; client_key: string },
   ) => request<Entry>('POST', `/api/games/${gameId}/entries`, body),
   verify: (entryId: string, if_version?: number) =>
     request<Entry>('POST', `/api/entries/${entryId}/verify`, { if_version }),
@@ -104,6 +104,10 @@ export const api = {
     request<Entry>('POST', `/api/entries/${entryId}/reject`, { note, if_version }),
   voidEntry: (entryId: string, reason: string, if_version?: number) =>
     request<Entry>('POST', `/api/entries/${entryId}/void`, { reason, if_version }),
-  amend: (entryId: string, amount_minor: number, if_version?: number) =>
-    request<Entry>('POST', `/api/entries/${entryId}/amend`, { amount_minor, if_version }),
+  amend: (entryId: string, amount_minor: number, if_version?: number, client_key?: string) =>
+    request<Entry>('POST', `/api/entries/${entryId}/amend`, {
+      amount_minor,
+      if_version,
+      client_key,
+    }),
 };

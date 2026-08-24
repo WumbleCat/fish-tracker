@@ -86,19 +86,41 @@ describe('EntryForm keyboard flow', () => {
     expect(screen.getByLabelText('amount')).toHaveValue('12.345');
   });
 
-  it('keeps the form contents when the save fails, for retry', async () => {
+  it('hands the entry off synchronously and is ready for the next one before any server answer', async () => {
     const user = userEvent.setup();
+    const submitted: EntryDraft[] = [];
     render(
       <EntryForm
         members={members}
         currency="GBP"
         exponent={2}
         canPickPlayer
-        onSubmit={() => Promise.reject(new Error('network down'))}
+        onSubmit={(draft) => {
+          submitted.push(draft);
+        }}
       />,
     );
     await user.keyboard('{Tab}{Tab}50{Enter}');
-    expect(await screen.findByRole('alert')).toHaveTextContent('network down');
-    expect(screen.getByLabelText('amount')).toHaveValue('50');
+    // the amount clears and the draft is out the door in the same tick —
+    // a refused write comes back through the page's rollback notice
+    expect(submitted).toEqual([{ userId: 'u-alice', entryType: 'buy_in', amountMinor: 5000 }]);
+    expect(screen.getByLabelText('amount')).toHaveValue('');
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('a rolled-back entry can be restored into the form', () => {
+    render(
+      <EntryForm
+        members={members}
+        currency="GBP"
+        exponent={2}
+        canPickPlayer
+        defaultUserId="u-bob"
+        defaultType="rebuy"
+        defaultAmount="20.00"
+        onSubmit={() => {}}
+      />,
+    );
+    expect(screen.getByLabelText('amount')).toHaveValue('20.00');
   });
 });

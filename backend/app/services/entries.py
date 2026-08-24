@@ -246,8 +246,20 @@ def amend_entry(
     entry_id: uuid.UUID,
     amount_minor: int,
     if_version: int | None,
+    client_key: uuid.UUID | None = None,
 ) -> Entry:
     entry, game = _load_entry_game(session, principal, entry_id)
+    if client_key is not None:
+        # same replay rule as log_entry: one key, one row
+        existing = session.execute(
+            select(Entry).where(
+                Entry.game_id == entry.game_id,
+                Entry.user_id == entry.user_id,
+                Entry.client_key == client_key,
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            return existing
     _require_live_game(game, (GameState.running, GameState.settling))
     _check_entry_version(entry, if_version)
     if entry.user_id != principal.user.id:
@@ -266,6 +278,7 @@ def amend_entry(
         state=EntryState.pending,
         logged_by=principal.user.id,
         amends_entry_id=entry.id,
+        client_key=client_key,
     )
     session.add(amended)
     session.flush()
