@@ -14,7 +14,7 @@ export default function SignIn() {
 
   // Confirmation links open in a mail app, so they land on the web app —
   // sign in here afterwards.
-  const WEB_URL = 'https://fish-tracker-web.vercel.app';
+  const WEB_URL = 'https://fish-tracker-app.vercel.app';
 
   const submit = async () => {
     setError(null);
