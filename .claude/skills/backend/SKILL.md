@@ -168,6 +168,7 @@ GET    /api/users/me                     profile + default currency
 PUT    /api/users/me/payout-details      owner only
 GET    /api/games/{id}/payout-details    details for members of this game, masked
 GET    /api/users/me/history             lifetime stats, grouped by currency
+GET    /api/users/me/games               every table sat at (hosted flag) + own entries in every state (added 2026-08-24)
 ```
 
 `leave` and `members/{user_id}/remove` were missing from an earlier draft of this list even though `app-logic`'s permissions checklist requires both — added 2026-08-23 (`app-logic` wins).

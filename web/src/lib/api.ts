@@ -5,6 +5,7 @@ import type {
   CurrencyHistory,
   Entry,
   Game,
+  GameHistory,
   GameState,
   GameSummary,
   PayoutDetailsMasked,
@@ -73,6 +74,7 @@ export const api = {
   updateMe: (patch: { display_name?: string; default_currency?: string }) =>
     request<User>('PATCH', '/api/users/me', patch),
   history: () => request<{ currencies: CurrencyHistory[] }>('GET', '/api/users/me/history'),
+  myGames: () => request<{ games: GameHistory[] }>('GET', '/api/users/me/games'),
   putPayoutDetails: (details: {
     account_name?: string | null;
     sort_code?: string | null;

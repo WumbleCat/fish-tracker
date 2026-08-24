@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.deps import CurrentPrincipal, DbSession
 from app.schemas.users import (
+    GamesHistoryOut,
     HistoryOut,
     PayoutDetailsIn,
     PushTokenIn,
@@ -50,6 +51,11 @@ def put_payout_details(
 @router.get("/me/history", response_model=HistoryOut)
 def history(session: DbSession, principal: CurrentPrincipal):
     return HistoryOut(currencies=users_service.lifetime_history(session, principal))
+
+
+@router.get("/me/games", response_model=GamesHistoryOut)
+def my_games(session: DbSession, principal: CurrentPrincipal):
+    return GamesHistoryOut(games=users_service.games_history(session, principal))
 
 
 @router.post("/me/push-token", status_code=204)

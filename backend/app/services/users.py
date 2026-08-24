@@ -177,3 +177,68 @@ def lifetime_history(session: Session, principal: Principal) -> list[dict]:
         }
         for b in by_currency.values()
     ]
+
+
+def games_history(session: Session, principal: Principal) -> list[dict]:
+    """Every table this player has sat at, newest first, with their own
+    buy-ins and cash-outs in every state. Money figures count verified
+    entries only — a pending claim is listed, never summed."""
+    principal.require_registered()
+    uid = principal.user.id
+
+    rows = session.execute(
+        select(Game, GameMember)
+        .join(GameMember, GameMember.game_id == Game.id)
+        .where(GameMember.user_id == uid)
+        .order_by(Game.created_at.desc())
+    ).all()
+    game_ids = [g.id for g, _ in rows]
+    by_game: dict[uuid.UUID, list[Entry]] = {gid: [] for gid in game_ids}
+    if game_ids:
+        for e in session.execute(
+            select(Entry)
+            .where(Entry.user_id == uid, Entry.game_id.in_(game_ids))
+            .order_by(Entry.created_at)
+        ).scalars():
+            by_game[e.game_id].append(e)
+
+    out = []
+    for g, m in rows:
+        mine = by_game[g.id]
+        buy_ins = sum(
+            e.amount_minor
+            for e in mine
+            if e.state == EntryState.verified and e.entry_type != EntryType.cash_out
+        )
+        cash_outs = sum(
+            e.amount_minor
+            for e in mine
+            if e.state == EntryState.verified and e.entry_type == EntryType.cash_out
+        )
+        out.append(
+            {
+                "game_id": g.id,
+                "name": g.name,
+                "state": g.state,
+                "created_at": g.created_at,
+                "closed_at": g.closed_at,
+                "currency": g.currency,
+                "currency_exponent": g.currency_exponent,
+                "role": m.role,
+                "hosted": g.host_id == uid,
+                "buy_ins_minor": buy_ins,
+                "cash_outs_minor": cash_outs,
+                "net_minor": cash_outs - buy_ins,
+                "entries": [
+                    {
+                        "id": e.id,
+                        "entry_type": e.entry_type,
+                        "amount_minor": e.amount_minor,
+                        "state": e.state,
+                        "created_at": e.created_at,
+                    }
+                    for e in mine
+                ],
+            }
+        )
+    return out
