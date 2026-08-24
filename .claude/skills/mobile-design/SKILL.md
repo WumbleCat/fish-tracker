@@ -147,7 +147,7 @@ Handling rules, not negotiable:
 
 - **Not in a game** — a code field, not an apology.
 - **Game with no entries** — prompt to log the first buy-in, primary action already in reach.
-- **Reconciliation mismatch** — a warning with a next action ("recount chips" / "log the missing rebuy"), never an error.
+- **Reconciliation mismatch** — never an error. Rendered as the same fixed counter block as desktop (BUY-INS / CASH-OUTS / GAP rows, short/over pill, no prose — decided 2026-08-24); a nonzero gap gates payments until acknowledged.
 - **Version conflict (409)** — the entry changed under you. Refetch, show what it is now, ask again. Never retry silently.
 - **Offline** — a persistent, unobtrusive banner; queued entries visible and counted.
 - **Failed write** — keep the amount in the sheet and offer retry. Never discard a typed entry.

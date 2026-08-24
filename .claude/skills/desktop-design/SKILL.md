@@ -53,7 +53,7 @@ Where a figure genuinely must be computed client-side, compute it in `lib/ledger
 
 **3. Reconciliation is surfaced before settlement, always.**
 
-Total verified buy-ins must equal total verified cash-outs. When they don't, chips are missing or miscounted. Render the discrepancy as a prominent banner above the settlement UI and require an explicit acknowledgement before payments are shown. Never silently round the difference away, and never let the settlement view render as if the numbers balance when they don't.
+Total verified buy-ins must equal total verified cash-outs. When they don't, chips are missing or miscounted. Render reconciliation as a **fixed counter block** above the payments — BUY-INS / CASH-OUTS / GAP rows (plus PENDING when nonzero), identical in every state, with a short/over pill and no prose sentences (decided 2026-08-24). A nonzero GAP row gates the payment list until an explicit acknowledgement checkbox is ticked. Never silently round the difference away, and never let the settlement view render as if the numbers balance when they don't.
 
 ## Stack
 
