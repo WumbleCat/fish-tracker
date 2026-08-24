@@ -25,6 +25,7 @@ function pending(userId: string, amountMinor: number): Entry {
     rejection_note: null,
     void_reason: null,
     amends_entry_id: null,
+    client_key: null,
     version: 1,
   };
 }
@@ -122,6 +123,42 @@ describe('VerifyQueue keyboard flow', () => {
     );
     expect(screen.queryByText(/verify all/i)).toBeNull();
     expect(screen.getAllByRole('button', { name: /^verify$/i })).toHaveLength(3);
+  });
+
+  it('an entry acted on leaves the queue at once while the server is still deciding', () => {
+    const entries = [pending('a', 100), pending('b', 200)];
+    render(
+      <VerifyQueue
+        entries={entries}
+        inflight={{ [entries[0].id]: 'verify' }}
+        nameOf={nameOf}
+        currency="GBP"
+        exponent={2}
+        onVerify={() => {}}
+        onReject={() => {}}
+      />,
+    );
+    // its state is still 'pending' — only the queue view moved on
+    expect(entries[0].state).toBe('pending');
+    expect(screen.queryByText('Alice')).toBeNull();
+    expect(screen.getByText('Bob')).toBeInTheDocument();
+  });
+
+  it('a row the server has not confirmed yet shows as logging and cannot be verified', () => {
+    const claim = { ...pending('a', 100), client_key: 'ck-1' };
+    claim.id = 'ck-1'; // optimistic: id is still the client key
+    render(
+      <VerifyQueue
+        entries={[claim]}
+        nameOf={nameOf}
+        currency="GBP"
+        exponent={2}
+        onVerify={() => {}}
+        onReject={() => {}}
+      />,
+    );
+    expect(screen.getByText('logging…')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^verify$/i })).toBeNull();
   });
 
   it('shortcuts are suppressed while typing in an input', async () => {

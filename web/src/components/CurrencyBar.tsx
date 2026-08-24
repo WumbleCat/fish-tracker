@@ -1,10 +1,14 @@
 /** Sets the default currency for NEW games and the display currency for
  * lifetime history. It never converts anything: inside a game the game's
- * currency always wins, and this control says so rather than surprising. */
+ * currency always wins, and this control says so rather than surprising.
+ * The pick applies instantly and rolls back, saying so, if the server
+ * refuses it. */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 
 import { api } from '../lib/api';
+import type { User } from '../lib/types';
 
 const CHOICES = ['GBP', 'EUR', 'USD', 'JPY', 'AUD', 'CAD'];
 
@@ -17,9 +21,21 @@ export function CurrencyBar({
   inGameCurrency?: string;
 }) {
   const queryClient = useQueryClient();
+  const [undone, setUndone] = useState<string | null>(null);
   const mutation = useMutation({
     mutationFn: (currency: string) => api.updateMe({ default_currency: currency }),
-    onSuccess: () => {
+    onMutate: async (currency) => {
+      await queryClient.cancelQueries({ queryKey: ['me'] });
+      const previous = queryClient.getQueryData<User>(['me']);
+      if (previous) queryClient.setQueryData<User>(['me'], { ...previous, default_currency: currency });
+      return { previous };
+    },
+    onError: (_e, currency, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(['me'], ctx.previous);
+      setUndone(`Undid default currency → ${currency}: not saved.`);
+      setTimeout(() => setUndone(null), 5000);
+    },
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['me'] });
       void queryClient.invalidateQueries({ queryKey: ['history'] });
     },
@@ -48,6 +64,11 @@ export function CurrencyBar({
           ))}
         </select>
       </label>
+      {undone && (
+        <span role="alert" className="text-rose-700">
+          {undone}
+        </span>
+      )}
     </span>
   );
 }

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 
 import { api } from '../lib/api';
 import { useMe } from '../lib/queries';
+import type { User } from '../lib/types';
 
 export function Settings() {
   const queryClient = useQueryClient();
@@ -14,18 +15,33 @@ export function Settings() {
   const [paymentReference, setPaymentReference] = useState('');
   const [revolutLink, setRevolutLink] = useState('');
   const [saved, setSaved] = useState<string | null>(null);
+  const [undone, setUndone] = useState<string | null>(null);
 
   useEffect(() => {
     if (me) setDisplayName(me.display_name);
   }, [me]);
 
+  const flash = (what: string) => {
+    setSaved(what);
+    setTimeout(() => setSaved(null), 1500);
+  };
+
+  // The name shows as saved the moment you press Save; a refusal puts the
+  // old name back and says so.
   const saveProfile = useMutation({
     mutationFn: () => api.updateMe({ display_name: displayName }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['me'] });
-      setSaved('profile');
-      setTimeout(() => setSaved(null), 1500);
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['me'] });
+      const previous = queryClient.getQueryData<User>(['me']);
+      if (previous) queryClient.setQueryData<User>(['me'], { ...previous, display_name: displayName });
+      flash('profile');
+      return { previous };
     },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(['me'], ctx.previous);
+      setUndone(`Undid display name → "${displayName}": not saved.`);
+    },
+    onSettled: () => void queryClient.invalidateQueries({ queryKey: ['me'] }),
   });
 
   const saveDetails = useMutation({
@@ -37,10 +53,8 @@ export function Settings() {
         payment_reference: paymentReference || null,
         revolut_link: revolutLink || null,
       }),
-    onSuccess: () => {
-      setSaved('details');
-      setTimeout(() => setSaved(null), 1500);
-    },
+    onMutate: () => flash('details'),
+    onError: () => setUndone('Payout details were not saved — the previous details still apply.'),
   });
 
   const sortCodeValid = sortCode === '' || /^[0-9]{6}$/.test(sortCode);
@@ -50,6 +64,14 @@ export function Settings() {
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
+      {undone && (
+        <p role="alert" className="flex items-center gap-3 rounded bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <span>{undone}</span>
+          <button onClick={() => setUndone(null)} className="ml-auto text-xs underline">
+            dismiss
+          </button>
+        </p>
+      )}
       <section className="rounded border border-neutral-200 bg-white p-4">
         <h2 className="text-sm font-semibold">Profile</h2>
         <form

@@ -9,10 +9,14 @@ export function LedgerTable({
   game,
   selectedUserId,
   onSelect,
+  reconciling = false,
 }: {
   game: Game;
   selectedUserId?: string | null;
   onSelect?: (userId: string) => void;
+  /** A write is in flight: the figures shown are the server's last word and
+   * will move when it answers — never before. */
+  reconciling?: boolean;
 }) {
   const { currency, currency_exponent: exponent } = game;
   const byUser = (userId: string) =>
@@ -79,7 +83,10 @@ export function LedgerTable({
                   signed
                 />
               </td>
-              <td className="px-2 py-1.5 text-right">
+              <td
+                className={`px-2 py-1.5 text-right ${reconciling ? 'opacity-60' : ''}`}
+                title={reconciling ? 'syncing — updates when the server confirms' : undefined}
+              >
                 <PendingAmount
                   minor={net?.pending_delta_minor ?? 0}
                   currency={currency}

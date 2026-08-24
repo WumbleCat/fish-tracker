@@ -23,6 +23,7 @@ function entry(id: string, state: Entry['state']): Entry {
     rejection_note: null,
     void_reason: null,
     amends_entry_id: null,
+    client_key: null,
     version: 1,
   };
 }

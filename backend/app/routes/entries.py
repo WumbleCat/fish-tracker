@@ -57,5 +57,5 @@ def amend(
     principal: CurrentPrincipal,
 ):
     return entries_service.amend_entry(
-        session, principal, entry_id, body.amount_minor, body.if_version
+        session, principal, entry_id, body.amount_minor, body.if_version, body.client_key
     )

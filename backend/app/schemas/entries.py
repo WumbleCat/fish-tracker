@@ -33,6 +33,7 @@ class VoidRequest(BaseModel):
 class AmendRequest(BaseModel):
     amount_minor: StrictInt = Field(gt=0)
     if_version: int | None = None
+    client_key: uuid.UUID | None = None
 
 
 class EntryOut(BaseModel):
@@ -50,5 +51,8 @@ class EntryOut(BaseModel):
     void_reason: str | None
     amends_entry_id: uuid.UUID | None
     version: int
+    # Echoed back so a client can match the row it showed optimistically
+    # (keyed by its own UUID) to the row the server actually created.
+    client_key: uuid.UUID | None = None
 
     model_config = {"from_attributes": True}

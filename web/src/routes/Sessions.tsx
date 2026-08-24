@@ -5,7 +5,7 @@ import { useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { api } from '../lib/api';
-import { useMe, useGames } from '../lib/queries';
+import { prefetchGame, useMe, useGames } from '../lib/queries';
 import { useShortcuts } from '../lib/shortcuts';
 
 const STATE_LABELS: Record<string, string> = {
@@ -97,9 +97,17 @@ export function Sessions() {
           </thead>
           <tbody>
             {filtered.map((g) => (
-              <tr key={g.id} className="border-b border-neutral-100 hover:bg-neutral-100/60">
+              <tr
+                key={g.id}
+                className="border-b border-neutral-100 hover:bg-neutral-100/60"
+                onMouseEnter={() => prefetchGame(queryClient, g.id)}
+              >
                 <td className="py-2">
-                  <Link to={`/session/${g.id}`} className="font-medium text-emerald-800">
+                  <Link
+                    to={`/session/${g.id}`}
+                    onFocus={() => prefetchGame(queryClient, g.id)}
+                    className="font-medium text-emerald-800"
+                  >
                     {g.name}
                   </Link>
                 </td>

@@ -144,6 +144,18 @@ Never soften a loss. Rounding a downswing toward zero, or styling it in a gentle
 - **Settlement** — the ordered list of who pays whom, payout details, and a copy-to-clipboard summary for pasting into a group chat.
 - **Account settings** — display name, default currency, and payout details.
 
+## Instant UI, one ground truth (decided 2026-08-24)
+
+Every write lands on screen synchronously and the server is asked in the background — but the server always has the last word, and no money figure ever comes from anywhere else. The mechanics live in `lib/optimistic.ts`, `lib/serialize.ts` and `routes/Session.tsx`:
+
+- **Inserts** (log, amend) show a row at once under a `client_key` the client generated with `crypto.randomUUID()` and sent with the request. `EntryOut` echoes it, lists key on `client_key ?? id`, and `mergeEntries` drops the optimistic row the moment the server row with the same key arrives — no flicker, no duplicate. Optimistic rows are held in local state and merged at render, never written into the query cache, so a stale refetch cannot erase them.
+- **State changes** (verify, reject, void) are an *overlay*, not a change to `state`: the row reads "verifying…" and leaves the verification queue at once, while its `state` — and every figure derived from it — stays what the server last said. The overlay comes off only after the reconciling refetch has landed, so a row never flickers back.
+- **Money is never optimistic.** Nets, totals, the Pending column and the settlement are exactly what the API last returned, shown with a "syncing…" marker while a write is in flight. `close` is not optimistic at all — the settlement people hand over cash against is only ever the server's answer. Create/join navigate to a server-issued id and are made instant by shell-first rendering instead.
+- **Failure rolls back to the exact prior state and says what was undone** — "Undid verify of £20.00 buy-in for Bob — version conflict." A rolled-back entry offers *Restore to form*.
+- **Writes to the same resource are serialised** (`serialize(key, task)`): three rapid clicks reach the server in order; a second click on an in-flight row is a no-op. In-flight reads are cancelled before a write is applied.
+- **Reconcile on settle**: every mutation invalidates the game and settlement queries; a live game also polls every 5 s as a safety net under Realtime.
+- **Navigation renders the shell first** from whatever the cache knows (the sessions list summary), and session rows and nav links prefetch on hover/focus.
+
 ## Live nets
 
 The net column updates for everyone at the table as the host verifies. Subscribe to the game's entries via Supabase Realtime and use the event to invalidate the TanStack Query cache — then render what the refetch returns. Never compute a net from a Realtime payload; that is a second implementation of settlement logic wearing a disguise.

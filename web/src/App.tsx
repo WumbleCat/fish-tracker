@@ -6,7 +6,7 @@ import { CurrencyBar } from './components/CurrencyBar';
 import { GuestBadge } from './components/GuestBadge';
 import { ShortcutsHelp } from './components/ShortcutsHelp';
 import { useAuth } from './lib/auth';
-import { useGame, useMe } from './lib/queries';
+import { prefetchNav, useGame, useMe } from './lib/queries';
 import { useShortcuts } from './lib/shortcuts';
 import { Claim } from './routes/Claim';
 import { Landing } from './routes/Landing';
@@ -27,6 +27,7 @@ function Header() {
   const { data: game } = useGame(status === 'signedOut' ? undefined : gameId);
   const [helpOpen, setHelpOpen] = useState(false);
   useShortcuts({ '?': () => setHelpOpen((o) => !o) });
+  const warm = (target: 'games' | 'history' | 'me') => () => prefetchNav(queryClient, target);
 
   if (status === 'signedOut' || status === 'loading') return null;
 
@@ -37,9 +38,16 @@ function Header() {
       </Link>
       {status === 'registered' && (
         <nav className="flex gap-3 text-sm text-neutral-600">
-          <Link to="/sessions">Sessions</Link>
-          <Link to="/profile">Profile</Link>
-          <Link to="/settings">Settings</Link>
+          {/* warm the cache on hover/focus so the click renders from data */}
+          <Link to="/sessions" onMouseEnter={warm('games')} onFocus={warm('games')}>
+            Sessions
+          </Link>
+          <Link to="/profile" onMouseEnter={warm('history')} onFocus={warm('history')}>
+            Profile
+          </Link>
+          <Link to="/settings" onMouseEnter={warm('me')} onFocus={warm('me')}>
+            Settings
+          </Link>
         </nav>
       )}
       <span className="ml-auto flex items-center gap-3">

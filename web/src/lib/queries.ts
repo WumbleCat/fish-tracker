@@ -1,8 +1,9 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
 import { api } from './api';
 import { supabase } from './supabase';
+import type { Game } from './types';
 
 export function useMe(enabled: boolean) {
   return useQuery({ queryKey: ['me'], queryFn: api.me, enabled });
@@ -12,12 +13,39 @@ export function useGames() {
   return useQuery({ queryKey: ['games'], queryFn: api.games });
 }
 
+// Realtime is the primary freshness signal; a live game also polls as a
+// safety net so a dropped subscription can never leave a stale ledger on
+// screen at the table. A closed game is immutable and polls not at all.
+const LIVE_POLL_MS = 5_000;
+const isLive = (game: Game | undefined) =>
+  game?.state === 'running' || game?.state === 'settling' || game?.state === 'open';
+
 export function useGame(id: string | undefined) {
   return useQuery({
     queryKey: ['game', id],
     queryFn: () => api.game(id!),
     enabled: !!id,
+    refetchInterval: (query) => (isLive(query.state.data) ? LIVE_POLL_MS : false),
   });
+}
+
+/** Warm the cache on hover/focus so the click renders from data, not a spinner. */
+export function prefetchGame(queryClient: QueryClient, id: string): void {
+  void queryClient.prefetchQuery({ queryKey: ['game', id], queryFn: () => api.game(id) });
+}
+
+export function prefetchNav(queryClient: QueryClient, target: 'games' | 'history' | 'me'): void {
+  switch (target) {
+    case 'games':
+      void queryClient.prefetchQuery({ queryKey: ['games'], queryFn: api.games });
+      break;
+    case 'history':
+      void queryClient.prefetchQuery({ queryKey: ['history'], queryFn: api.history });
+      break;
+    case 'me':
+      void queryClient.prefetchQuery({ queryKey: ['me'], queryFn: api.me });
+      break;
+  }
 }
 
 export function useSettlement(id: string | undefined, enabled = true) {

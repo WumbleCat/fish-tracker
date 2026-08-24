@@ -21,6 +21,9 @@ export interface Entry {
   void_reason: string | null;
   amends_entry_id: string | null;
   version: number;
+  /** Client-chosen UUID sent with the insert; the optimistic row and the
+   * server row share it, so lists key on it and never flicker. */
+  client_key: string | null;
 }
 
 export interface Member {

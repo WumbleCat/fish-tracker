@@ -1,6 +1,10 @@
 /** Keyboard-first entry: Tab through fields, Enter submits and immediately
  * refocuses the first field for the next entry, Esc cancels. Reaching for
- * the mouse between entries means this component has failed. */
+ * the mouse between entries means this component has failed.
+ *
+ * Submit is synchronous: the entry is handed off and the form is ready for
+ * the next one before the server has answered. A refused entry comes back
+ * through the page's rollback notice, which offers to restore it here. */
 
 import { useRef, useState, type FormEvent } from 'react';
 
@@ -19,6 +23,7 @@ export function EntryForm({
   exponent,
   defaultType = 'buy_in',
   defaultUserId,
+  defaultAmount = '',
   allowedTypes = ['buy_in', 'rebuy', 'cash_out'],
   canPickPlayer,
   onSubmit,
@@ -29,21 +34,23 @@ export function EntryForm({
   exponent: number;
   defaultType?: EntryType;
   defaultUserId?: string;
+  /** Decimal string, e.g. a rolled-back entry being restored. */
+  defaultAmount?: string;
   allowedTypes?: EntryType[];
   /** Hosts log on anyone's behalf; players only for themselves. */
   canPickPlayer: boolean;
-  onSubmit: (draft: EntryDraft) => Promise<void> | void;
+  onSubmit: (draft: EntryDraft) => void;
   onCancel?: () => void;
 }) {
   const active = members.filter((m) => !m.departed_at);
   const [userId, setUserId] = useState(defaultUserId ?? active[0]?.user_id ?? '');
   const [entryType, setEntryType] = useState<EntryType>(defaultType);
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState(defaultAmount);
   const [error, setError] = useState<string | null>(null);
   const firstFieldRef = useRef<HTMLSelectElement>(null);
   const amountRef = useRef<HTMLInputElement>(null);
 
-  const handleSubmit = async (event: FormEvent) => {
+  const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     const minor = parseToMinor(amount, exponent);
     if (minor === null || minor <= 0) {
@@ -51,16 +58,11 @@ export function EntryForm({
       amountRef.current?.select();
       return;
     }
-    try {
-      await onSubmit({ userId, entryType, amountMinor: minor });
-      // never discard typed context: keep player+type, clear amount, refocus
-      setAmount('');
-      setError(null);
-      (canPickPlayer ? firstFieldRef : amountRef).current?.focus();
-    } catch (e) {
-      // keep the form contents so the user can retry
-      setError(e instanceof Error ? e.message : 'save failed');
-    }
+    onSubmit({ userId, entryType, amountMinor: minor });
+    // never discard typed context: keep player+type, clear amount, refocus
+    setAmount('');
+    setError(null);
+    (canPickPlayer ? firstFieldRef : amountRef).current?.focus();
   };
 
   return (

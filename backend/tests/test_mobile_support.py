@@ -63,3 +63,35 @@ def test_push_token_registration_upserts(client, make_registered, engine):
             {"u": str(user["user_id"])},
         ).scalar_one()
     assert count == 1
+
+
+def test_entry_out_echoes_the_client_key(client, make_registered):
+    # the web client keys its optimistic row on this; without the echo the
+    # real row would arrive under a different key and the list would flicker
+    host = make_registered("host@test.local", "Host")
+    game = to_running(client, host, create_game(client, host))
+    key = str(uuid.uuid4())
+    body = {"entry_type": "buy_in", "amount_minor": 2000, "client_key": key}
+    created = client.post(f"/api/games/{game['id']}/entries", json=body, headers=auth(host))
+    assert created.json()["client_key"] == key
+    g = client.get(f"/api/games/{game['id']}", headers=auth(host)).json()
+    assert g["entries"][0]["client_key"] == key
+
+
+def test_amend_accepts_and_replays_a_client_key(client, make_registered):
+    host = make_registered("host@test.local", "Host")
+    game = to_running(client, host, create_game(client, host))
+    entry = log_entry(client, host, game["id"], "buy_in", 2000)
+    rejected = client.post(
+        f"/api/entries/{entry['id']}/reject", json={}, headers=auth(host)
+    ).json()
+    key = str(uuid.uuid4())
+    body = {"amount_minor": 4000, "if_version": rejected["version"], "client_key": key}
+    first = client.post(f"/api/entries/{entry['id']}/amend", json=body, headers=auth(host))
+    assert first.status_code == 201, first.text
+    assert first.json()["client_key"] == key
+    replay = client.post(f"/api/entries/{entry['id']}/amend", json=body, headers=auth(host))
+    assert replay.status_code == 201
+    assert replay.json()["id"] == first.json()["id"]
+    g = client.get(f"/api/games/{game['id']}", headers=auth(host)).json()
+    assert len(g["entries"]) == 2  # original + one amendment, not two
