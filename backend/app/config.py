@@ -132,7 +132,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://postgres:postgres@127.0.0.1:54322/postgres"
     cors_origins: str = (
         "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8081,"
-        "https://fish-tracker-app.vercel.app,https://fish-tracker-web.vercel.app"
+        "https://fish-tracker-app.vercel.app"
     )
     guest_token_ttl_hours: int = 48
     # which env var the connection string came from — diagnostic only
