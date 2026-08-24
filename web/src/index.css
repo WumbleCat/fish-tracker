@@ -1,5 +1,7 @@
 @import 'tailwindcss';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-felt-50: #f4f7f4;
   --color-felt-800: #1d2a22;
@@ -8,6 +10,47 @@
 
 :root {
   color-scheme: light;
+}
+
+/* Dark mode re-points the palette the components already use, so every
+   surface, border and tint follows without a dark: class on each one.
+   Neutrals invert (50 is the page, 900 the ink); the status tints keep
+   their hue but move to dark backgrounds and light text. Sign colours
+   (win/loss, pending) stay distinguishable at the same contrast — colour
+   is still never the only signal. */
+.dark {
+  color-scheme: dark;
+
+  --color-white: #1c1c1e;
+  --color-neutral-50: #111112;
+  --color-neutral-100: #1a1a1c;
+  --color-neutral-200: #2a2a2e;
+  --color-neutral-300: #3a3a40;
+  --color-neutral-400: #8a8a92;
+  --color-neutral-500: #a3a3ab;
+  --color-neutral-600: #c4c4cb;
+  --color-neutral-700: #d4d4da;
+  --color-neutral-800: #e5e5ea;
+  --color-neutral-900: #f5f5f7;
+
+  --color-emerald-50: #0f2a1f;
+  --color-emerald-100: #123826;
+  --color-emerald-600: #34d399;
+  --color-emerald-700: #6ee7b7;
+  --color-emerald-800: #a7f3d0;
+
+  --color-amber-50: #2a1f08;
+  --color-amber-100: #3a2a0a;
+  --color-amber-300: #b45309;
+  --color-amber-400: #d97706;
+  --color-amber-600: #fbbf24;
+  --color-amber-700: #fcd34d;
+  --color-amber-900: #fde68a;
+
+  --color-rose-50: #2e1216;
+  --color-rose-300: #9f1239;
+  --color-rose-400: #be123c;
+  --color-rose-700: #fda4af;
 }
 
 body {
