@@ -10,6 +10,7 @@ import { useAuth } from './lib/auth';
 import { prefetchNav, useGame, useMe } from './lib/queries';
 import { useShortcuts } from './lib/shortcuts';
 import { Claim } from './routes/Claim';
+import { JoinLink } from './routes/JoinLink';
 import { Landing } from './routes/Landing';
 import { Profile } from './routes/Profile';
 import { Session } from './routes/Session';
@@ -96,6 +97,7 @@ export default function App() {
             }
           />
           <Route path="/claim-home" element={<GuestHome />} />
+          <Route path="/join/:code" element={<JoinLink />} />
           <Route path="/sessions" element={<Sessions />} />
           <Route path="/session/:id" element={<Session />} />
           <Route path="/profile" element={<Profile />} />

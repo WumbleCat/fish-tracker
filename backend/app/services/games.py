@@ -26,6 +26,7 @@ from app.models import (
     User,
 )
 from app.services.auth import Principal, generate_join_code
+from app.services.seats import require_seat
 from app.services.settlement import settle
 
 # ISO 4217 minor-unit exponents that differ from the common case. Never a
@@ -145,6 +146,10 @@ def join_game(session: Session, principal: Principal, join_code: str) -> Game:
         raise AppError("game_not_joinable", 409, {"state": game.state.value})
 
     member = session.get(GameMember, (game.id, principal.user.id))
+    if member is not None and member.departed_at is None:
+        # already seated — joining again is a no-op, not a second seat
+        return game
+    require_seat(session, game.id)
     if member is not None:
         # Rejoining after leaving is normal; membership resumes.
         member.departed_at = None

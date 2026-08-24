@@ -1,5 +1,11 @@
 /** One auth surface over two token kinds: a Supabase session for registered
- * users, or an API-minted guest token scoped to a single game. */
+ * users, or an API-minted guest token scoped to a single game.
+ *
+ * A guest is remembered: the session lives in localStorage, and every visit
+ * (and every return to the tab) refreshes the token so it never quietly
+ * expires between one week's game and the next. The stored session is only
+ * dropped when the server says the token is no longer valid — never on a
+ * network blip. */
 
 import {
   createContext,
@@ -11,7 +17,7 @@ import {
   type ReactNode,
 } from 'react';
 
-import { setTokenProvider } from './api';
+import { api, ApiError, setTokenProvider } from './api';
 import { supabase } from './supabase';
 
 const GUEST_KEY = 'fish_guest';
@@ -21,6 +27,7 @@ interface GuestSession {
   gameId: string;
   userId: string;
   displayName: string;
+  expiresAt?: string;
 }
 
 interface AuthState {
@@ -33,12 +40,32 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null);
 
-function readGuest(): GuestSession | null {
+export function readGuest(): GuestSession | null {
   try {
     const raw = localStorage.getItem(GUEST_KEY);
     return raw ? (JSON.parse(raw) as GuestSession) : null;
   } catch {
     return null;
+  }
+}
+
+function writeGuest(g: GuestSession): void {
+  localStorage.setItem(GUEST_KEY, JSON.stringify(g));
+  supabase.realtime.setAuth(g.token);
+}
+
+/** Extend the stored guest token. Returns the session to keep, or null when
+ * the server has definitively rejected it (expired, revoked). A closed game
+ * or a network failure keeps the session: the person is still who they were. */
+export async function refreshGuest(current: GuestSession): Promise<GuestSession | null> {
+  try {
+    const r = await api.guestRefresh();
+    const next = { ...current, token: r.token, expiresAt: r.expires_at };
+    writeGuest(next);
+    return next;
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 401) return null;
+    return current;
   }
 }
 
@@ -69,6 +96,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supabase.realtime.setAuth(g.token);
         setGuest(g);
         setStatus('guest');
+        const kept = await refreshGuest(g);
+        if (cancelled) return;
+        if (kept) setGuest(kept);
+        else {
+          localStorage.removeItem(GUEST_KEY);
+          setGuest(null);
+          setStatus('signedOut');
+        }
       } else {
         setStatus('signedOut');
       }
@@ -92,6 +127,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [tick]);
 
+  // coming back to the tab after a while: extend the guest token again
+  useEffect(() => {
+    if (status !== 'guest') return;
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      const g = readGuest();
+      if (g) void refreshGuest(g).then((kept) => kept && setGuest(kept));
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [status]);
+
   const signOut = useCallback(async () => {
     localStorage.removeItem(GUEST_KEY);
     setGuest(null);
@@ -100,8 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const startGuestSession = useCallback((g: GuestSession) => {
-    localStorage.setItem(GUEST_KEY, JSON.stringify(g));
-    supabase.realtime.setAuth(g.token);
+    writeGuest(g);
     setGuest(g);
     setStatus('guest');
   }, []);

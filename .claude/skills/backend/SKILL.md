@@ -243,6 +243,10 @@ Do these in the service layer, inside a transaction, with the game row locked (`
 
 **Guest limits** — reject guests on: hosting, verifying, host transfer, payout details, lifetime history, and any game other than the one in their token.
 
+**Seats** — a table holds nine active members, host included (`services/seats.py`, decided 2026-08-24). Both join paths call `require_seat` before adding or re-seating a member and refuse with `table_full` `{"seats": 9}`; the `game_members_capacity` trigger (migration `20260824220000`) is the backstop against a race between two joins. A departed member holds no seat. A member joining while already seated is a no-op, not a second seat.
+
+**Guest continuity** — guest tokens last a week (`guest_token_ttl_hours` = 168; the game is weekly) and clients call `POST /api/auth/guest/refresh` on every visit, so a guest who comes back is still the same ledger row. The refresh is refused only when the token is invalid or the game is closed.
+
 **No auto-verification.** Not below a threshold, not after a timeout, not for the host's own entries. An auto-verified row is indistinguishable in the data from a checked one, which devalues every verified row.
 
 Host self-verification is allowed (requiring a second person deadlocks when the host is the only one paying attention) but `verified_by == user_id` must stay queryable so a discrepancy can be traced.

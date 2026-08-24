@@ -62,6 +62,11 @@ export const api = {
       '/api/auth/guest',
       { join_code, display_name },
     ),
+  guestRefresh: () =>
+    request<{ token: string; user_id: string; game_id: string; expires_at: string }>(
+      'POST',
+      '/api/auth/guest/refresh',
+    ),
   claim: (guest_token: string) => request<User>('POST', '/api/auth/claim', { guest_token }),
 
   me: () => request<User>('GET', '/api/users/me'),

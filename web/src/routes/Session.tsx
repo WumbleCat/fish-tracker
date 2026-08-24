@@ -57,6 +57,25 @@ interface Notice {
   restore?: EntryDraft;
 }
 
+/** A table seats nine, host included (app-logic). Display only — the API refuses the tenth. */
+const MAX_SEATS = 9;
+
+function CopyChip({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={async () => {
+        await navigator.clipboard.writeText(value);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+      className="rounded-full border border-neutral-300 px-2.5 py-0.5 text-xs text-neutral-600 hover:border-emerald-600 hover:text-emerald-700"
+    >
+      {copied ? 'Copied ✓' : label}
+    </button>
+  );
+}
+
 const reasonOf = (e: unknown): string => {
   if (e instanceof ApiError) {
     return e.code === 'version_conflict'
@@ -362,6 +381,8 @@ export function Session() {
     shown.totals.verified_buy_ins_minor - shown.totals.verified_cash_outs_minor;
   const next = NEXT_STATE[shown.state];
   const syncing = writesInFlight > 0 || optimistic.length > 0 || Object.keys(inflight).length > 0;
+  const seated = shown.members.filter((m) => !m.departed_at).length;
+  const joinLink = `${window.location.origin}/join/${shown.join_code}`;
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -376,10 +397,21 @@ export function Session() {
         >
           {currency}
         </span>
+        <span
+          className="num rounded bg-neutral-200 px-2 py-0.5 text-xs"
+          title="Seats taken — a table holds nine, host included"
+        >
+          {seated}/{MAX_SEATS} seats
+        </span>
         {(shown.state === 'open' || shown.state === 'running') && (
-          <span className="num text-sm text-neutral-500">
-            join code: <strong className="tracking-[0.2em]">{shown.join_code}</strong>
-          </span>
+          <>
+            <span className="num text-sm text-neutral-500">
+              join code:{' '}
+              <strong className="tracking-[0.2em] text-emerald-700">{shown.join_code}</strong>
+            </span>
+            <CopyChip label="Copy link" value={joinLink} />
+            <CopyChip label="Copy code" value={shown.join_code} />
+          </>
         )}
         {hostDetails && !isGuest && shown.state !== 'closed' && (
           <Popover.Root>
@@ -526,10 +558,36 @@ export function Session() {
               Entry log
             </h2>
             {shown.entries.length === 0 ? (
-              <p className="text-sm text-neutral-500">
-                No entries yet. Press <kbd className="rounded border px-1">n</kbd> to log the first
-                buy-in.
-              </p>
+              // the dealt table: nothing has happened yet, and the two
+              // things that can are right here
+              <div className="flex flex-col gap-3.5 rounded-2xl border border-dashed border-felt-700 bg-felt-950 p-7 text-felt-100">
+                <p className="text-[19px]">
+                  {shown.state === 'running' || shown.state === 'settling'
+                    ? "Nobody's bought in yet."
+                    : shown.state === 'open'
+                      ? 'Table is open — read the code out.'
+                      : 'Nothing on the table yet.'}
+                </p>
+                <div className="flex flex-wrap gap-2.5">
+                  {(shown.state === 'running' || shown.state === 'settling') && (
+                    <button
+                      onClick={() => openEntryForm('buy_in')}
+                      className="rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white hover:brightness-105"
+                    >
+                      Log a buy-in
+                    </button>
+                  )}
+                  {(shown.state === 'open' || shown.state === 'running') && (
+                    <button
+                      onClick={() => void navigator.clipboard.writeText(joinLink)}
+                      className="rounded-full border border-felt-700 px-5 py-2.5 text-sm text-felt-300 hover:border-emerald-400"
+                    >
+                      Copy link
+                    </button>
+                  )}
+                </div>
+                <p className="text-[12.5px] text-felt-600">n logs · r rebuy · c cash out</p>
+              </div>
             ) : (
               <EntryLog
                 game={shown}
