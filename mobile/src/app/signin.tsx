@@ -12,23 +12,36 @@ export default function SignIn() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Confirmation links open in a mail app, so they land on the web app —
+  // sign in here afterwards.
+  const WEB_URL = 'https://fish-tracker-web.vercel.app';
+
   const submit = async () => {
     setError(null);
+    setMessage(null);
     const result =
       mode === 'signup'
         ? await supabase.auth.signUp({
             email,
             password,
-            options: { data: { display_name: displayName || email.split('@')[0] } },
+            options: {
+              data: { display_name: displayName || email.split('@')[0] },
+              emailRedirectTo: WEB_URL,
+            },
           })
         : await supabase.auth.signInWithPassword({ email, password });
     if (result.error) setError(result.error.message);
+    else if (mode === 'signup' && !result.data.session)
+      setMessage(`Confirmation email sent to ${email} — open it, then sign in here.`);
     else router.replace('/sessions');
   };
 
   const magicLink = async () => {
     setError(null);
-    const { error: e } = await supabase.auth.signInWithOtp({ email });
+    const { error: e } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: WEB_URL },
+    });
     if (e) setError(e.message);
     else setMessage(`Magic link sent to ${email} — open it on this phone.`);
   };

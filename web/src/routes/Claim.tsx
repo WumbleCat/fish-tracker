@@ -29,12 +29,21 @@ export function Claim() {
     setError(null);
     setBusy(true);
     try {
-      const { error: signUpError } = await supabase.auth.signUp({
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { display_name: guest.displayName } },
+        options: {
+          data: { display_name: guest.displayName },
+          emailRedirectTo: `${window.location.origin}/claim`,
+        },
       });
       if (signUpError) throw new Error(signUpError.message);
+      if (!data.session) {
+        // email confirmation required — the guest session stays intact so
+        // they can come back to this page and finish
+        setError(`Confirm the email we sent to ${email}, then return here to finish claiming.`);
+        return;
+      }
       await api.claim(guest.token);
       localStorage.removeItem('fish_guest');
       refresh();
