@@ -12,6 +12,7 @@ import { EntryForm, type EntryDraft } from '../components/EntryForm';
 import { EntryLog } from '../components/EntryLog';
 import { LedgerTable } from '../components/LedgerTable';
 import { PayoutBlock } from '../components/PayoutBlock';
+import { PlayerBankCard } from '../components/PlayerBankCard';
 import { SettlementPanel } from '../components/SettlementPanel';
 import { VerifyQueue } from '../components/VerifyQueue';
 import { api, ApiError } from '../lib/api';
@@ -55,7 +56,9 @@ export function Session() {
     type: 'buy_in',
   });
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [queueUserId, setQueueUserId] = useState<string | null>(null);
   const [conflict, setConflict] = useState<string | null>(null);
+  const onQueueSelect = useCallback((entry: Entry | null) => setQueueUserId(entry?.user_id ?? null), []);
 
   const invalidate = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ['game', id] });
@@ -150,6 +153,11 @@ export function Session() {
   const nameOf = (userId: string) =>
     game.members.find((m) => m.user_id === userId)?.display_name ?? 'unknown';
   const hostDetails = payoutDetails?.find((d) => d.user_id === game.host_id) ?? null;
+  // the player the host is acting on: the focused queue entry first, then
+  // the ledger selection — whoever is about to be paid out
+  const focusUserId = queueUserId ?? selectedUserId;
+  const focusDetails =
+    (focusUserId && payoutDetails?.find((d) => d.user_id === focusUserId)) || null;
   const settleableTable =
     game.totals.verified_buy_ins_minor - game.totals.verified_cash_outs_minor;
   const next = NEXT_STATE[game.state];
@@ -280,20 +288,24 @@ export function Session() {
 
         <div className="space-y-4">
           {isHost && (game.state === 'running' || game.state === 'settling') && (
-            <section className="rounded border border-neutral-200 bg-white p-3">
-              <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-neutral-500">
-                Verification queue
-              </h2>
-              <VerifyQueue
-                entries={game.entries}
-                nameOf={nameOf}
-                currency={currency}
-                exponent={exponent}
-                onVerify={(entry) => verify.mutate(entry)}
-                onReject={(entry, note) => reject.mutate({ entry, note })}
-                shortcutsEnabled={!entryFormOpen}
-              />
-            </section>
+            <>
+              {focusDetails && <PlayerBankCard details={focusDetails} isGbp={currency === 'GBP'} />}
+              <section className="rounded border border-neutral-200 bg-white p-3">
+                <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-neutral-500">
+                  Verification queue
+                </h2>
+                <VerifyQueue
+                  entries={game.entries}
+                  nameOf={nameOf}
+                  currency={currency}
+                  exponent={exponent}
+                  onVerify={(entry) => verify.mutate(entry)}
+                  onReject={(entry, note) => reject.mutate({ entry, note })}
+                  onSelect={onQueueSelect}
+                  shortcutsEnabled={!entryFormOpen}
+                />
+              </section>
+            </>
           )}
 
           {showSettlement && settlement && (

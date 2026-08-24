@@ -16,6 +16,7 @@ export function VerifyQueue({
   exponent,
   onVerify,
   onReject,
+  onSelect,
   shortcutsEnabled = true,
 }: {
   entries: Entry[];
@@ -24,6 +25,7 @@ export function VerifyQueue({
   exponent: number;
   onVerify: (entry: Entry) => void;
   onReject: (entry: Entry, note: string | null) => void;
+  onSelect?: (entry: Entry | null) => void;
   shortcutsEnabled?: boolean;
 }) {
   const queue = useMemo(() => pendingEntries(entries), [entries]);
@@ -36,6 +38,12 @@ export function VerifyQueue({
   }, [queue.length, selected]);
 
   const current = queue[selected];
+
+  // the parent follows the focused entry (e.g. to show that player's bank
+  // details beside the queue)
+  useEffect(() => {
+    onSelect?.(current ?? null);
+  }, [current, onSelect]);
 
   useShortcuts(
     {

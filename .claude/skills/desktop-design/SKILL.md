@@ -163,6 +163,7 @@ Home games settle through the host as banker, so the host's bank details need to
 - **Settlement panel** holds the primary presentation: an account block for the host — account name, sort code, account number — with a copy button per field and a copy-all. This is the placement to build first.
 - **Session header** carries a compact "pay the host" affordance (a popover, not a permanent block) so someone can settle up before the game formally closes.
 - **Payment rows** show the payee's details inline where that payee has provided them, since not every payment goes to the host.
+- **Above the verification queue** (host only, added 2026-08-24) sits a bank-details card for the player in focus — the focused queue entry's player, else the ledger selection — as fixed rows (account name, sort code, account number; reference for non-GBP; Revolut when set) with a copy button at the end of each. It renders only when that player has shared details; otherwise nothing. The host pays out from here when verifying a cash-out.
 - **Non-GBP games** show the free-text payment reference instead of sort code / account number. Don't render UK bank fields for a game in euros.
 
 Handling rules, which are not negotiable:

@@ -10,7 +10,7 @@ import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { PayoutDetailsMasked } from '../lib/types';
 
-async function fetchFullAccountNumber(userId: string): Promise<string | null> {
+export async function fetchFullAccountNumber(userId: string): Promise<string | null> {
   const { data } = await supabase
     .from('payout_details')
     .select('account_number')
@@ -19,7 +19,7 @@ async function fetchFullAccountNumber(userId: string): Promise<string | null> {
   return data?.account_number ?? null;
 }
 
-function CopyButton({ getValue, label }: { getValue: () => Promise<string | null>; label: string }) {
+export function CopyButton({ getValue, label }: { getValue: () => Promise<string | null>; label: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <button
