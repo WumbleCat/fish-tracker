@@ -1,8 +1,11 @@
 import os
 from functools import lru_cache
+from urllib.parse import quote
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import ArgumentError
 
 # The local supabase-start secret. If production is still running on this
 # publicly-known value, HS256 tokens are forgeable and must be refused.
@@ -13,7 +16,13 @@ def normalize_pg_url(url: str) -> str:
     """Accept the connection strings the Supabase<->Vercel integration
     injects (postgres:// / postgresql://) and force the psycopg driver.
     Integration URLs carry query params psycopg refuses (e.g. supa=...),
-    so the query is rebuilt: hosted connections keep sslmode=require."""
+    so the query is rebuilt: hosted connections keep sslmode=require.
+
+    The injected credentials may be raw, not percent-encoded — a database
+    password containing @ / ? / # produces a string SQLAlchemy's make_url
+    refuses. Credentials are re-encoded only when the URL doesn't parse
+    as-is, so an already-encoded password is never double-encoded."""
+    url = url.strip().strip("'\"")
     stripped = None
     for prefix in ("postgresql+psycopg://", "postgresql://", "postgres://"):
         if url.startswith(prefix):
@@ -21,10 +30,30 @@ def normalize_pg_url(url: str) -> str:
             break
     if stripped is None:
         return url
-    base = "postgresql+psycopg://" + stripped.split("?", 1)[0]
-    host_part = stripped.split("@")[-1]
+    # split credentials at the LAST @ — a raw password may itself hold @
+    creds, at, host_part = stripped.rpartition("@")
+    host_part = host_part.split("?", 1)[0]
     is_local = host_part.startswith(("127.0.0.1", "localhost"))
-    return base if is_local else base + "?sslmode=require"
+    suffix = "" if is_local else "?sslmode=require"
+
+    def build(cred_str: str) -> str:
+        auth = cred_str + "@" if at else ""
+        return "postgresql+psycopg://" + auth + host_part + suffix
+
+    candidate = build(creds)
+    # a raw password holding @ can still "parse" — with part of itself
+    # swallowed into the host — so the parsed host must match too
+    expected_host = host_part.split("/", 1)[0].rsplit(":", 1)[0]
+    try:
+        if not at or make_url(candidate).host == expected_host:
+            return candidate
+    except ArgumentError:
+        pass
+    user, colon, password = creds.partition(":")
+    encoded = quote(user, safe="")
+    if colon:
+        encoded += ":" + quote(password, safe="")
+    return build(encoded)
 
 
 class Settings(BaseSettings):

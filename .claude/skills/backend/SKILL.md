@@ -51,7 +51,7 @@ The deployment target is **decided (2026-08-23): Vercel**, serverless Python via
 uv run uvicorn app.main:app --reload --port 8000
 ```
 
-Environment (never committed — see `repo` for the `.env` contract). On Vercel, the Supabase↔Vercel integration's injected vars are honoured as fallbacks (added 2026-08-24): `POSTGRES_URL`/`POSTGRES_URL_NON_POOLING` → `DATABASE_URL` (normalized to the psycopg driver, integration query params stripped, sslmode kept), `SUPABASE_SECRET_KEY` → service key. The integration does NOT inject the legacy `SUPABASE_JWT_SECRET`; until it is set by hand, production refuses ALL HS256 tokens and guest joins return 503 `guest_unavailable` — running HS256 on the public dev secret would make every guest token forgeable:
+Environment (never committed — see `repo` for the `.env` contract). On Vercel, the Supabase↔Vercel integration's injected vars are honoured as fallbacks (added 2026-08-24): `POSTGRES_URL`/`POSTGRES_URL_NON_POOLING` → `DATABASE_URL` (normalized to the psycopg driver, integration query params stripped, sslmode kept, raw un-percent-encoded credentials re-encoded — the integration injects the database password raw, and one with `@`/`?`/spaces otherwise breaks or silently corrupts URL parsing), `SUPABASE_SECRET_KEY` → service key. The integration does NOT inject the legacy `SUPABASE_JWT_SECRET`; until it is set by hand, production refuses ALL HS256 tokens and guest joins return 503 `guest_unavailable` — running HS256 on the public dev secret would make every guest token forgeable. `GET /api/health` reports `db: ok|unavailable` from a live `SELECT 1` (added 2026-08-24) — check it before log-diving a 500:
 
 | Var | Use |
 |---|---|
