@@ -83,6 +83,9 @@ export interface Payment {
   from_user: string;
   to_user: string;
   amount_minor: number;
+  /** The host's record that this was paid — beside the settlement, never in it. */
+  paid: boolean;
+  paid_at: string | null;
 }
 
 export interface Settlement {
@@ -108,6 +111,7 @@ export interface PayoutDetailsMasked {
   user_id: string;
   display_name: string;
   account_name: string | null;
+  bank_name: string | null;
   sort_code: string | null;
   account_number_masked: string | null;
   payment_reference: string | null;

@@ -64,6 +64,31 @@ class PayoutDetails(Base):
     account_number: Mapped[str | None] = mapped_column(Text)
     payment_reference: Mapped[str | None] = mapped_column(Text)
     revolut_link: Mapped[str | None] = mapped_column(Text)
+    bank_name: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("now()")
+    )
+
+
+class PaymentMark(Base):
+    """The host's record that a settlement payment was paid. A fact about
+    cash changing hands, kept beside the settlement — never part of it."""
+
+    __tablename__ = "payment_marks"
+
+    game_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("games.id"), primary_key=True
+    )
+    from_user: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True
+    )
+    to_user: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True
+    )
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    marked_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id")
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text("now()")
     )

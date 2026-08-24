@@ -75,6 +75,7 @@ export const api = {
   history: () => request<{ currencies: CurrencyHistory[] }>('GET', '/api/users/me/history'),
   putPayoutDetails: (details: {
     account_name?: string | null;
+    bank_name?: string | null;
     sort_code?: string | null;
     account_number?: string | null;
     payment_reference?: string | null;
@@ -96,6 +97,8 @@ export const api = {
       if_version,
     }),
   settlement: (id: string) => request<Settlement>('GET', `/api/games/${id}/settlement`),
+  markPayment: (id: string, from_user: string, to_user: string, paid: boolean) =>
+    request<Settlement>('POST', `/api/games/${id}/payments/mark`, { from_user, to_user, paid }),
   gamePayoutDetails: (id: string) =>
     request<PayoutDetailsMasked[]>('GET', `/api/games/${id}/payout-details`),
 

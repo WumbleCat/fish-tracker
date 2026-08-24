@@ -12,6 +12,7 @@ const details: PayoutDetailsMasked = {
   user_id: 'u-bob',
   display_name: 'Bob',
   account_name: 'R Example',
+  bank_name: null,
   sort_code: '123456',
   account_number_masked: '••••4321',
   payment_reference: null,

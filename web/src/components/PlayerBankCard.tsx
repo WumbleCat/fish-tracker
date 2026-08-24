@@ -50,7 +50,13 @@ export function PlayerBankCard({
       : `https://${details.revolut_link}`
     : null;
 
-  if (!details.account_name && !bankRows && !details.payment_reference && !revolutHref) {
+  if (
+    !details.account_name &&
+    !details.bank_name &&
+    !bankRows &&
+    !details.payment_reference &&
+    !revolutHref
+  ) {
     return null;
   }
 
@@ -70,6 +76,14 @@ export function PlayerBankCard({
             value={details.account_name}
             copyLabel="account name"
             getValue={async () => details.account_name}
+          />
+        )}
+        {details.bank_name && (
+          <Row
+            label="Bank"
+            value={details.bank_name}
+            copyLabel="bank name"
+            getValue={async () => details.bank_name}
           />
         )}
         {bankRows && details.sort_code && (

@@ -69,7 +69,7 @@ export function PayoutCard({
       ? details.revolut_link
       : `https://${details.revolut_link}`
     : null;
-  if (!hasBankFields && !details.payment_reference && !revolutHref) return null;
+  if (!hasBankFields && !details.payment_reference && !revolutHref && !details.bank_name) return null;
 
   return (
     <View
@@ -77,8 +77,16 @@ export function PayoutCard({
       style={{ backgroundColor: '#1a2620', borderRadius: 12, padding: 12, gap: 4 }}
     >
       {title && <Text style={{ color: '#9fb0a8', fontSize: 12 }}>{title.toUpperCase()}</Text>}
-      {details.account_name && (
-        <Text style={{ color: '#e7ece9', fontWeight: '600' }}>{details.account_name}</Text>
+      {(details.account_name || details.bank_name) && (
+        <Text style={{ color: '#e7ece9', fontWeight: '600' }}>
+          {details.account_name}
+          {details.bank_name && (
+            <Text style={{ color: '#9fb0a8', fontWeight: '400' }}>
+              {details.account_name ? ' · ' : ''}
+              {details.bank_name}
+            </Text>
+          )}
+        </Text>
       )}
       {hasBankFields ? (
         <>

@@ -19,7 +19,7 @@ from app.schemas.games import (
     StateChangeRequest,
     TransferHostRequest,
 )
-from app.schemas.settlement import CloseRequest, SettlementOut
+from app.schemas.settlement import CloseRequest, PaymentMarkRequest, SettlementOut
 from app.schemas.users import PayoutDetailsMasked
 from app.services import entries as entries_service
 from app.services import games as games_service
@@ -203,6 +203,19 @@ def close_game(
 ):
     games_service.close_game(
         session, principal, game_id, body.acknowledge_discrepancy, body.if_version
+    )
+    return games_service.get_settlement_view(session, principal, game_id)
+
+
+@router.post("/{game_id}/payments/mark", response_model=SettlementOut)
+def mark_payment(
+    game_id: uuid.UUID,
+    body: PaymentMarkRequest,
+    session: DbSession,
+    principal: CurrentPrincipal,
+):
+    games_service.mark_payment(
+        session, principal, game_id, body.from_user, body.to_user, body.paid
     )
     return games_service.get_settlement_view(session, principal, game_id)
 

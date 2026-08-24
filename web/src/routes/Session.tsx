@@ -16,6 +16,7 @@ import { useParams } from 'react-router-dom';
 import { Amount } from '../components/Amount';
 import { EntryForm, type EntryDraft } from '../components/EntryForm';
 import { EntryLog } from '../components/EntryLog';
+import { GuestPayoutForm } from '../components/GuestPayoutForm';
 import { LedgerTable } from '../components/LedgerTable';
 import { PayoutBlock } from '../components/PayoutBlock';
 import { PlayerBankCard } from '../components/PlayerBankCard';
@@ -42,7 +43,15 @@ import {
 } from '../lib/queries';
 import { serialize } from '../lib/serialize';
 import { useShortcuts } from '../lib/shortcuts';
-import type { Entry, EntryType, Game, GameState, GameSummary } from '../lib/types';
+import type {
+  Entry,
+  EntryType,
+  Game,
+  GameState,
+  GameSummary,
+  Payment,
+  Settlement,
+} from '../lib/types';
 
 const NEXT_STATE: Partial<Record<GameState, { to: GameState; label: string }>> = {
   draft: { to: 'open', label: 'Open for joins' },
@@ -99,7 +108,8 @@ export function Session() {
   // settlement panel — and its reconciliation gate — appear once play stops.
   const showSettlement = game?.state === 'settling' || game?.state === 'closed';
   const { data: settlement } = useSettlement(id, !!showSettlement);
-  const { data: payoutDetails } = useGamePayoutDetails(id, !isGuest);
+  // every member may see what co-players shared — guests included
+  const { data: payoutDetails } = useGamePayoutDetails(id, true);
 
   const isHost = !!game && game.host_id === meId;
   const [entryFormOpen, setEntryFormOpen] = useState(false);
@@ -318,6 +328,39 @@ export function Session() {
         api.close(id!, acknowledge, queryClient.getQueryData<Game>(['game', id])?.version),
       ),
     onError: (e) => setNotice({ text: `Close refused — ${reasonOf(e)}.` }),
+    onSettled: () => reconcile(),
+  });
+
+  // The host's paid tick: instant on screen, a record beside the settlement
+  // on the server, rolled back with a message if refused.
+  const markPaid = useMutation({
+    mutationKey: ['game', id, 'write'],
+    mutationFn: ({ payment, paid }: { payment: Payment; paid: boolean }) =>
+      serialize(`game:${id}:marks`, () =>
+        api.markPayment(id!, payment.from_user, payment.to_user, paid),
+      ),
+    onMutate: async ({ payment, paid }) => {
+      await queryClient.cancelQueries({ queryKey: ['settlement', id] });
+      const previous = queryClient.getQueryData<Settlement>(['settlement', id]);
+      if (previous) {
+        queryClient.setQueryData<Settlement>(['settlement', id], {
+          ...previous,
+          payments: previous.payments.map((p) =>
+            p.from_user === payment.from_user && p.to_user === payment.to_user
+              ? { ...p, paid, paid_at: paid ? new Date().toISOString() : null }
+              : p,
+          ),
+        });
+      }
+      return { previous };
+    },
+    onError: (e, { payment, paid }, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(['settlement', id], ctx.previous);
+      const who = describe(payment.from_user, payment.amount_minor, null);
+      setNotice({
+        text: `Undid marking ${who.amount} from ${who.name} as ${paid ? 'paid' : 'unpaid'} — ${reasonOf(e)}.`,
+      });
+    },
     onSettled: () => reconcile(),
   });
 
@@ -550,6 +593,7 @@ export function Session() {
               selectedUserId={selectedUserId}
               onSelect={setSelectedUserId}
               reconciling={syncing}
+              payoutDetails={payoutDetails ?? null}
             />
           </section>
 
@@ -612,6 +656,13 @@ export function Session() {
         </div>
 
         <div className="space-y-4">
+          {isGuest && (
+            <GuestPayoutForm
+              onSaved={() =>
+                void queryClient.invalidateQueries({ queryKey: ['payout-details', id] })
+              }
+            />
+          )}
           {isHost && (shown.state === 'running' || shown.state === 'settling') && (
             <>
               {focusDetails && <PlayerBankCard details={focusDetails} isGbp={currency === 'GBP'} />}
@@ -642,9 +693,10 @@ export function Session() {
               <SettlementPanel
                 game={shown}
                 settlement={settlement}
-                payoutDetails={isGuest ? null : (payoutDetails ?? null)}
+                payoutDetails={payoutDetails ?? null}
                 isHost={isHost}
                 onClose={(acknowledge) => close.mutate(acknowledge)}
+                onMarkPaid={(payment, paid) => markPaid.mutate({ payment, paid })}
               />
             </section>
           )}

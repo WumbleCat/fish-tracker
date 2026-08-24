@@ -127,7 +127,8 @@ Phones lose signal in kitchens and basements. The app must not lose an entry bec
 - The **settle screen** is where they belong: the host's account block first — account name, sort code, account number — each field with its own copy button, plus copy-all. Copying is the whole point on a phone; someone is switching to their banking app.
 - Each payment row shows the payee's details where provided, since not every payment goes to the host.
 - **Non-GBP games** show the free-text payment reference instead of the UK bank fields.
-- Details are entered in **settings** by the owner, registered users only.
+- Details are entered in **settings** by the owner; they include the **bank name** (2026-08-24), shown beside the account name. Guests may hold session-scoped details too (the API allows it since 2026-08-24); the settings form still gates on registered users — opening it to guests is the next step here.
+- Payment rows show the host's **PAID** pill once marked (from the web app's tick); a paid row hides its payee card. The host's tick itself is not on the phone yet.
 
 Handling rules, not negotiable:
 

@@ -105,6 +105,11 @@ export function useGameRealtime(gameId: string | undefined): void {
         { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
         invalidate,
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'payment_marks', filter: `game_id=eq.${gameId}` },
+        invalidate,
+      )
       .subscribe();
     return () => {
       void supabase.removeChannel(channel);

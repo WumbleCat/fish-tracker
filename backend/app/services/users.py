@@ -43,13 +43,17 @@ def upsert_payout_details(
     account_number: str | None,
     payment_reference: str | None,
     revolut_link: str | None,
+    bank_name: str | None = None,
 ) -> PayoutDetails:
-    principal.require_registered()
+    # Guests may hold details too (decided 2026-08-24): a guest identity
+    # exists for one game, so the row is scoped to that session by
+    # construction, and the same co-player visibility rule applies.
     row = session.get(PayoutDetails, principal.user.id)
     if row is None:
         row = PayoutDetails(user_id=principal.user.id)
         session.add(row)
     row.account_name = account_name
+    row.bank_name = bank_name
     row.sort_code = sort_code
     row.account_number = account_number
     row.payment_reference = payment_reference
@@ -68,10 +72,10 @@ def mask_account_number(account_number: str | None) -> str | None:
 def game_payout_details(
     session: Session, principal: Principal, game_id: uuid.UUID
 ) -> list[dict]:
-    """Masked details for this game's registered members. Guests are rejected
-    outright per the backend auth contract; reveal/copy happens client-side
-    via the direct Supabase read that RLS scopes the same way."""
-    principal.require_registered()
+    """Masked details for everyone at this table, readable by every member
+    of it — guests included, scoped to their one game by the token.
+    Reveal/copy happens client-side via the direct Supabase read that RLS
+    scopes the same way."""
     load_member_game(session, principal, game_id)
     rows = session.execute(
         select(PayoutDetails, User)
@@ -84,6 +88,7 @@ def game_payout_details(
             "user_id": pd.user_id,
             "display_name": u.display_name,
             "account_name": pd.account_name,
+            "bank_name": pd.bank_name,
             "sort_code": pd.sort_code,
             "account_number_masked": mask_account_number(pd.account_number),
             "payment_reference": pd.payment_reference,

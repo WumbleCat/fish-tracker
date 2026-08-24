@@ -10,6 +10,7 @@ export function Settings() {
   const { data: me } = useMe(true);
   const [displayName, setDisplayName] = useState('');
   const [accountName, setAccountName] = useState('');
+  const [bankName, setBankName] = useState('');
   const [sortCode, setSortCode] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
@@ -48,6 +49,7 @@ export function Settings() {
     mutationFn: () =>
       api.putPayoutDetails({
         account_name: accountName || null,
+        bank_name: bankName || null,
         sort_code: sortCode || null,
         account_number: accountNumber || null,
         payment_reference: paymentReference || null,
@@ -112,14 +114,25 @@ export function Settings() {
             if (sortCodeValid && accountNumberValid && revolutValid) saveDetails.mutate();
           }}
         >
-          <label className="block text-xs text-neutral-600">
-            Account name
-            <input
-              value={accountName}
-              onChange={(e) => setAccountName(e.target.value)}
-              className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
-            />
-          </label>
+          <div className="flex gap-3">
+            <label className="block flex-1 text-xs text-neutral-600">
+              Account name
+              <input
+                value={accountName}
+                onChange={(e) => setAccountName(e.target.value)}
+                className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="block flex-1 text-xs text-neutral-600">
+              Bank
+              <input
+                value={bankName}
+                onChange={(e) => setBankName(e.target.value)}
+                placeholder="e.g. Monzo"
+                className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+              />
+            </label>
+          </div>
           <div className="flex gap-3">
             <label className="block flex-1 text-xs text-neutral-600">
               Sort code (6 digits)

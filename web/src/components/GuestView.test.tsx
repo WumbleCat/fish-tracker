@@ -73,7 +73,7 @@ const game: Game = {
 const settlement: Settlement = {
   final: false,
   computed_at: null,
-  payments: [{ from_user: 'guest-1', to_user: 'host-1', amount_minor: 2000 }],
+  payments: [{ from_user: 'guest-1', to_user: 'host-1', amount_minor: 2000, paid: false, paid_at: null }],
   discrepancy_minor: 0,
   acknowledged_by: null,
   needs_acknowledgement: false,

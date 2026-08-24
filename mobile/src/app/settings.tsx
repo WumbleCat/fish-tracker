@@ -29,6 +29,7 @@ export default function Settings() {
   const { data: me } = useMe(!isGuest);
   const [displayName, setDisplayName] = useState('');
   const [accountName, setAccountName] = useState('');
+  const [bankName, setBankName] = useState('');
   const [sortCode, setSortCode] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
@@ -84,6 +85,13 @@ export default function Settings() {
             placeholderTextColor="#5d6f66"
             style={field}
           />
+          <TextInput
+            value={bankName}
+            onChangeText={setBankName}
+            placeholder="Bank (e.g. Monzo)"
+            placeholderTextColor="#5d6f66"
+            style={field}
+          />
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <TextInput
               value={sortCode}
@@ -128,6 +136,7 @@ export default function Settings() {
           if (!isGuest) {
             await api.putPayoutDetails({
               account_name: accountName || null,
+              bank_name: bankName || null,
               sort_code: /^[0-9]{6}$/.test(sortCode) ? sortCode : null,
               account_number: /^[0-9]{8}$/.test(accountNumber) ? accountNumber : null,
               payment_reference: paymentReference || null,

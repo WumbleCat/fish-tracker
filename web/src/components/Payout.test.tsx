@@ -13,6 +13,7 @@ const details: PayoutDetailsMasked = {
   user_id: 'host-1',
   display_name: 'Alice',
   account_name: 'A Example',
+  bank_name: null,
   sort_code: '040004',
   account_number_masked: '••••5678',
   payment_reference: null,
@@ -50,8 +51,8 @@ describe('settlement clipboard summary', () => {
   const summary = settlementSummary(
     "Friday at Alice's",
     [
-      { from_user: 'u-bob', to_user: 'u-alice', amount_minor: 6000 },
-      { from_user: 'u-carol', to_user: 'u-alice', amount_minor: 1500 },
+      { from_user: 'u-bob', to_user: 'u-alice', amount_minor: 6000, paid: false, paid_at: null },
+      { from_user: 'u-carol', to_user: 'u-alice', amount_minor: 1500, paid: false, paid_at: null },
     ],
     (id) => ({ 'u-bob': 'Bob', 'u-carol': 'Carol', 'u-alice': 'Alice' })[id] ?? id,
     'GBP',

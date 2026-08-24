@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { CODE_LENGTH, CodeTiles } from '../components/CodeTiles';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { stashPendingPayout } from '../lib/pending-payout';
 import { supabase } from '../lib/supabase';
 
 export function joinErrorMessage(e: unknown): string {
@@ -48,6 +49,17 @@ export function Landing({ initialCode = '' }: { initialCode?: string }) {
   const [displayName, setDisplayName] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  // optional at sign-up; saved on the first signed-in load (email confirms first)
+  const [bankOpen, setBankOpen] = useState(false);
+  const [bank, setBank] = useState({
+    account_name: '',
+    bank_name: '',
+    sort_code: '',
+    account_number: '',
+    revolut_link: '',
+  });
+  const setBankField = (key: keyof typeof bank, value: string) =>
+    setBank((b) => ({ ...b, [key]: value }));
 
   const ready = joinCode.length === CODE_LENGTH && guestName.trim().length > 0;
 
@@ -78,6 +90,13 @@ export function Landing({ initialCode = '' }: { initialCode?: string }) {
     setAuthError(null);
     setInfo(null);
     if (mode === 'signup') {
+      stashPendingPayout({
+        account_name: bank.account_name || null,
+        bank_name: bank.bank_name || null,
+        sort_code: /^[0-9]{6}$/.test(bank.sort_code) ? bank.sort_code : null,
+        account_number: /^[0-9]{8}$/.test(bank.account_number) ? bank.account_number : null,
+        revolut_link: bank.revolut_link || null,
+      });
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -203,6 +222,71 @@ export function Landing({ initialCode = '' }: { initialCode?: string }) {
                 placeholder="Password"
                 className={cardField}
               />
+              {mode === 'signup' && (
+                <div className="rounded-xl border border-felt-700 p-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setBankOpen((o) => !o)}
+                    className="flex w-full items-center justify-between text-left text-xs text-felt-300"
+                    aria-expanded={bankOpen}
+                  >
+                    <span>Bank details for getting paid (optional)</span>
+                    <span className="text-felt-600">{bankOpen ? 'hide' : 'add'}</span>
+                  </button>
+                  {bankOpen && (
+                    <div className="mt-2 flex flex-col gap-2">
+                      <input
+                        value={bank.account_name}
+                        onChange={(e) => setBankField('account_name', e.target.value)}
+                        placeholder="Account name"
+                        className={cardField}
+                        aria-label="account name"
+                      />
+                      <input
+                        value={bank.bank_name}
+                        onChange={(e) => setBankField('bank_name', e.target.value)}
+                        placeholder="Bank (e.g. Monzo)"
+                        className={cardField}
+                        aria-label="bank name"
+                      />
+                      <div className="flex gap-2">
+                        <input
+                          value={bank.sort_code}
+                          onChange={(e) =>
+                            setBankField('sort_code', e.target.value.replace(/[^0-9]/g, ''))
+                          }
+                          placeholder="Sort code"
+                          maxLength={6}
+                          inputMode="numeric"
+                          className={`num ${cardField}`}
+                          aria-label="sort code"
+                        />
+                        <input
+                          value={bank.account_number}
+                          onChange={(e) =>
+                            setBankField('account_number', e.target.value.replace(/[^0-9]/g, ''))
+                          }
+                          placeholder="Account no."
+                          maxLength={8}
+                          inputMode="numeric"
+                          className={`num ${cardField}`}
+                          aria-label="account number"
+                        />
+                      </div>
+                      <input
+                        value={bank.revolut_link}
+                        onChange={(e) => setBankField('revolut_link', e.target.value.trim())}
+                        placeholder="revolut.me/yourname"
+                        className={cardField}
+                        aria-label="revolut link"
+                      />
+                      <p className="text-[11px] text-felt-600">
+                        Saved to your account once you've confirmed your email.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
               {authError && (
                 <p role="alert" className="text-xs text-rose-400">
                   {authError}

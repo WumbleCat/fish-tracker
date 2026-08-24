@@ -7,6 +7,7 @@ import { GuestBadge } from './components/GuestBadge';
 import { ShortcutsHelp } from './components/ShortcutsHelp';
 import { ThemeToggle } from './components/ThemeToggle';
 import { useAuth } from './lib/auth';
+import { useFlushPendingPayout } from './lib/pending-payout';
 import { prefetchNav, useGame, useMe } from './lib/queries';
 import { useShortcuts } from './lib/shortcuts';
 import { Claim } from './routes/Claim';
@@ -29,6 +30,8 @@ function Header() {
   const { data: game } = useGame(status === 'signedOut' ? undefined : gameId);
   const [helpOpen, setHelpOpen] = useState(false);
   useShortcuts({ '?': () => setHelpOpen((o) => !o) });
+  // bank details typed at sign-up are saved on the first signed-in load
+  useFlushPendingPayout(status === 'registered');
   const warm = (target: 'games' | 'history' | 'me') => () => prefetchNav(queryClient, target);
 
   if (status === 'signedOut' || status === 'loading') return null;

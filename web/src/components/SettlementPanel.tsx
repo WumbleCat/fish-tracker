@@ -1,13 +1,15 @@
 /** Renders what the API computed — never recomputes payments. The
  * reconciliation banner sits ABOVE the payments and gates them: an
- * unacknowledged discrepancy hides the list entirely. */
+ * unacknowledged discrepancy hides the list entirely. The host ticks
+ * payments as they're paid; the tick is a record beside the settlement,
+ * never a change to it. */
 
 import { ClipboardCopy } from 'lucide-react';
 import { useState } from 'react';
 
 import { settlementSummary } from '../lib/clipboard';
 import { fmtMinor } from '../lib/money';
-import type { Game, PayoutDetailsMasked, Settlement } from '../lib/types';
+import type { Game, Payment, PayoutDetailsMasked, Settlement } from '../lib/types';
 import { Amount } from './Amount';
 import { PayoutBlock } from './PayoutBlock';
 
@@ -17,13 +19,16 @@ export function SettlementPanel({
   payoutDetails,
   isHost,
   onClose,
+  onMarkPaid,
 }: {
   game: Game;
   settlement: Settlement;
-  /** null for guests — the API refuses them and nothing is rendered. */
+  /** null when the API returned none; every member may read them. */
   payoutDetails: PayoutDetailsMasked[] | null;
   isHost: boolean;
   onClose?: (acknowledgeDiscrepancy: boolean) => void;
+  /** Host only: record that a payment was (or wasn't) paid. */
+  onMarkPaid?: (payment: Payment, paid: boolean) => void;
 }) {
   const { currency, currency_exponent: exponent } = game;
   const [acknowledged, setAcknowledged] = useState(false);
@@ -42,6 +47,8 @@ export function SettlementPanel({
   // the reconciliation surface — amber and gating when nonzero, ✓ when not.
   const buyIns = game.totals.verified_buy_ins_minor;
   const cashOuts = game.totals.verified_cash_outs_minor;
+  const canMark = isHost && !!onMarkPaid && (game.state === 'settling' || game.state === 'closed');
+  const paidCount = settlement.payments.filter((p) => p.paid).length;
 
   return (
     <section aria-label="settlement" className="space-y-3">
@@ -94,6 +101,14 @@ export function SettlementPanel({
             <dd className="num font-semibold text-amber-800">{settlement.pending_count}</dd>
           </div>
         )}
+        {settlement.payments.length > 0 && !gated && (
+          <div className="flex items-center justify-between px-3 py-2">
+            <dt className="text-xs uppercase tracking-wide text-neutral-500">Paid</dt>
+            <dd className="num font-medium" data-testid="settle-paid">
+              {paidCount}/{settlement.payments.length}
+            </dd>
+          </div>
+        )}
       </dl>
 
       {mismatch && !settlement.final && (
@@ -121,16 +136,42 @@ export function SettlementPanel({
             {settlement.payments.map((p, i) => {
               const payee = detailFor(p.to_user);
               return (
-                <li key={i} className="rounded border border-neutral-200 bg-white px-3 py-2 text-sm">
+                <li
+                  key={i}
+                  className={`rounded border px-3 py-2 text-sm ${
+                    p.paid ? 'border-emerald-200 bg-emerald-50/40' : 'border-neutral-200 bg-white'
+                  }`}
+                >
                   <div className="flex items-center gap-2">
-                    <span className="font-medium">{nameOf(p.from_user)}</span>
+                    {canMark ? (
+                      <input
+                        type="checkbox"
+                        checked={p.paid}
+                        onChange={(e) => onMarkPaid?.(p, e.target.checked)}
+                        aria-label={`paid: ${nameOf(p.from_user)} to ${nameOf(p.to_user)}`}
+                      />
+                    ) : (
+                      p.paid && (
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+                          paid
+                        </span>
+                      )
+                    )}
+                    <span className={`font-medium ${p.paid ? 'text-neutral-500' : ''}`}>
+                      {nameOf(p.from_user)}
+                    </span>
                     <span className="text-neutral-400">→</span>
-                    <span className="font-medium">{nameOf(p.to_user)}</span>
-                    <span className="ml-auto font-semibold">
+                    <span className={`font-medium ${p.paid ? 'text-neutral-500' : ''}`}>
+                      {nameOf(p.to_user)}
+                    </span>
+                    <span className={`ml-auto font-semibold ${p.paid ? 'text-neutral-500' : ''}`}>
                       <Amount minor={p.amount_minor} currency={currency} exponent={exponent} />
                     </span>
+                    {canMark && p.paid && (
+                      <span className="text-xs font-semibold text-emerald-700">paid</span>
+                    )}
                   </div>
-                  {payee && (
+                  {payee && !p.paid && (
                     <div className="mt-2">
                       <PayoutBlock details={payee} isGbp={isGbp} />
                     </div>

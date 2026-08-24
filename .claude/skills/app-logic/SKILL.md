@@ -179,6 +179,13 @@ Rules that are not negotiable:
 - Mask the account number by default (`••••1234`) behind an explicit reveal or copy action. Copy is the action people actually use.
 - Validate format on entry (UK sort code: 6 digits; account number: 8 digits; Revolut link: revolut.me/handle) but treat it as a typo-catcher, not verification. The app never confirms an account exists, and must never imply it has. A Revolut link, unlike an account number, is a public handle and is shown unmasked — the visibility scoping (shared game only) still applies.
 
+## Payout details, extended (decided 2026-08-24)
+
+- Details carry the **bank's name** as well as the account holder's name, sort code, account number, and/or a Revolut tag. They can be entered when an account is created (saved once the account is confirmed) and edited in settings.
+- **Guests may hold payout details.** A guest identity exists for exactly one game, so the details are scoped to that session by construction; they are entered from the game screen and follow the row if the guest later claims it. The visibility rule is unchanged: co-players of a shared game, while it is open and for seven days after close.
+- **Every member of a table** — guests included — can open a co-player's profile from the ledger and see their details (account number masked, reveal on demand).
+- **Paid marks.** The host records which settlement payments have been paid. A mark is a fact about cash changing hands, kept beside the settlement; it never alters the settlement or the ledger, it is host-only, and unmarking clears it rather than deleting it. Visible to every member.
+
 ## Joining
 
 Joining uses a short human-readable code or a link — people are in a room together, so anything requiring account lookup is worse than reading six characters aloud. Guests use the same code and add only a display name.

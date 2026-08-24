@@ -31,7 +31,7 @@ const game: Game = {
 const balanced: Settlement = {
   final: false,
   computed_at: null,
-  payments: [{ from_user: 'guest-1', to_user: 'host-1', amount_minor: 2000 }],
+  payments: [{ from_user: 'guest-1', to_user: 'host-1', amount_minor: 2000, paid: false, paid_at: null }],
   discrepancy_minor: 0,
   acknowledged_by: null,
   needs_acknowledgement: false,
@@ -43,6 +43,7 @@ const hostDetails: PayoutDetailsMasked = {
   user_id: 'host-1',
   display_name: 'Alice',
   account_name: 'A Example',
+  bank_name: null,
   sort_code: '040004',
   account_number_masked: '••••5678',
   payment_reference: null,

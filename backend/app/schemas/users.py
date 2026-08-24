@@ -21,6 +21,7 @@ class UserUpdate(BaseModel):
 
 class PayoutDetailsIn(BaseModel):
     account_name: str | None = Field(default=None, min_length=1, max_length=100)
+    bank_name: str | None = Field(default=None, min_length=1, max_length=100)
     sort_code: str | None = Field(default=None, pattern=r"^[0-9]{6}$")
     account_number: str | None = Field(default=None, pattern=r"^[0-9]{8}$")
     payment_reference: str | None = Field(default=None, min_length=1, max_length=200)
@@ -40,6 +41,7 @@ class PayoutDetailsMasked(BaseModel):
     user_id: uuid.UUID
     display_name: str
     account_name: str | None
+    bank_name: str | None
     sort_code: str | None
     account_number_masked: str | None
     payment_reference: str | None

@@ -61,7 +61,17 @@ export function PayoutBlock({
   return (
     <div className="rounded border border-neutral-200 bg-white p-3 text-sm" aria-label="payout details">
       {title && <p className="mb-1 text-xs font-medium uppercase tracking-wide text-neutral-500">{title}</p>}
-      {details.account_name && <p className="font-medium">{details.account_name}</p>}
+      {details.account_name && (
+        <p className="font-medium">
+          {details.account_name}
+          {details.bank_name && (
+            <span className="ml-1.5 font-normal text-neutral-500">· {details.bank_name}</span>
+          )}
+        </p>
+      )}
+      {!details.account_name && details.bank_name && (
+        <p className="text-neutral-500">{details.bank_name}</p>
+      )}
       {hasBankFields ? (
         <dl className="mt-1 space-y-1">
           {details.sort_code && (

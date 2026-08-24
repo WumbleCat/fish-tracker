@@ -88,21 +88,22 @@ def test_revolut_link_format_is_a_typo_catcher(client, make_registered):
         assert resp.json()["revolut_link"] == good
 
 
-def test_guest_cannot_store_details_even_at_the_database(client, make_registered, engine):
+def test_guest_details_are_visible_to_co_players_and_carry_the_bank_name(client, make_registered):
     from tests.helpers import guest_join
 
     host = make_registered("host@test.local", "Host")
     game = to_running(client, host, create_game(client, host))
     guest = guest_join(client, game["join_code"], "Charlie")
-    with engine.begin() as conn:
-        try:
-            conn.execute(
-                text(
-                    "insert into public.payout_details (user_id, account_name) "
-                    "values (:u, 'G')"
-                ),
-                {"u": guest["user_id"]},
-            )
-            assert False, "guests must never hold payout details"
-        except Exception as e:
-            assert "guest_not_permitted" in str(e)
+    resp = client.put(
+        "/api/users/me/payout-details",
+        json={**DETAILS, "account_name": "C Example", "bank_name": "Monzo"},
+        headers=auth(guest["token"]),
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["bank_name"] == "Monzo"
+
+    rows = client.get(f"/api/games/{game['id']}/payout-details", headers=auth(host)).json()
+    charlie = next(r for r in rows if r["display_name"] == "Charlie")
+    assert charlie["bank_name"] == "Monzo"
+    assert charlie["account_number_masked"] == "••••5678"
+    assert "account_number" not in charlie

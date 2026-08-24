@@ -8,6 +8,10 @@ class PaymentOut(BaseModel):
     from_user: uuid.UUID
     to_user: uuid.UUID
     amount_minor: StrictInt
+    # The host's record that this payment was paid — looked up live from
+    # payment_marks, never stored in the settlement snapshot.
+    paid: bool = False
+    paid_at: datetime | None = None
 
 
 class SettlementOut(BaseModel):
@@ -28,3 +32,9 @@ class SettlementOut(BaseModel):
 class CloseRequest(BaseModel):
     acknowledge_discrepancy: bool = False
     if_version: int | None = None
+
+
+class PaymentMarkRequest(BaseModel):
+    from_user: uuid.UUID
+    to_user: uuid.UUID
+    paid: bool

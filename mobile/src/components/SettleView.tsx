@@ -176,7 +176,23 @@ export function SettleView({
                 style={{ backgroundColor: '#111a16', borderRadius: 12, padding: 12, gap: 8 }}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={{ color: '#e7ece9', fontWeight: '600' }}>
+                  {p.paid && (
+                    <Text
+                      testID="paid-pill"
+                      style={{
+                        color: '#06231a',
+                        backgroundColor: '#34d399',
+                        fontSize: 11,
+                        fontWeight: '800',
+                        paddingHorizontal: 6,
+                        paddingVertical: 2,
+                        borderRadius: 99,
+                      }}
+                    >
+                      PAID
+                    </Text>
+                  )}
+                  <Text style={{ color: p.paid ? '#9fb0a8' : '#e7ece9', fontWeight: '600' }}>
                     {nameOf(p.from_user)}
                   </Text>
                   <Text style={{ color: '#5d6f66' }}>→</Text>
@@ -184,7 +200,7 @@ export function SettleView({
                   <View style={{ flex: 1 }} />
                   <AmountText minor={p.amount_minor} currency={currency} exponent={exponent} bold />
                 </View>
-                {payee && <PayoutCard details={payee} isGbp={currency === 'GBP'} />}
+                {payee && !p.paid && <PayoutCard details={payee} isGbp={currency === 'GBP'} />}
               </View>
             );
           })}

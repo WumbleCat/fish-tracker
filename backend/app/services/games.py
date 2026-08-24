@@ -22,6 +22,7 @@ from app.models import (
     GameMember,
     GameState,
     MemberRole,
+    PaymentMark,
     Settlement,
     User,
 )
@@ -425,7 +426,7 @@ def get_settlement_view(
         return {
             "final": True,
             "computed_at": stored.computed_at,
-            "payments": stored.payments,
+            "payments": with_paid_marks(session, game_id, stored.payments),
             "discrepancy_minor": stored.discrepancy_minor,
             "acknowledged_by": stored.acknowledged_by,
             "needs_acknowledgement": False,
@@ -440,17 +441,67 @@ def get_settlement_view(
     return {
         "final": False,
         "computed_at": None,
-        "payments": [
-            {
-                "from_user": p.from_user,
-                "to_user": p.to_user,
-                "amount_minor": p.amount_minor,
-            }
-            for p in payments
-        ],
+        "payments": with_paid_marks(
+            session,
+            game_id,
+            [
+                {
+                    "from_user": p.from_user,
+                    "to_user": p.to_user,
+                    "amount_minor": p.amount_minor,
+                }
+                for p in payments
+            ],
+        ),
         "discrepancy_minor": discrepancy,
         "acknowledged_by": None,
         "needs_acknowledgement": discrepancy != 0,
         "pending_count": pending,
         "nets": nets,
     }
+
+
+def _payment_marks(session: Session, game_id: uuid.UUID) -> dict[tuple[str, str], PaymentMark]:
+    rows = session.execute(
+        select(PaymentMark).where(PaymentMark.game_id == game_id)
+    ).scalars()
+    return {(str(m.from_user), str(m.to_user)): m for m in rows}
+
+
+def with_paid_marks(session: Session, game_id: uuid.UUID, payments: list[dict]) -> list[dict]:
+    """Overlay the host's paid marks on a payment list (preview or final).
+    The marks live beside the settlement and never inside it."""
+    marks = _payment_marks(session, game_id)
+    out = []
+    for p in payments:
+        m = marks.get((str(p["from_user"]), str(p["to_user"])))
+        paid_at = m.paid_at if m is not None else None
+        out.append({**p, "paid": paid_at is not None, "paid_at": paid_at})
+    return out
+
+
+def mark_payment(
+    session: Session,
+    principal: Principal,
+    game_id: uuid.UUID,
+    from_user: uuid.UUID,
+    to_user: uuid.UUID,
+    paid: bool,
+) -> None:
+    """Host only, once play has stopped. Unmarking clears paid_at rather than
+    deleting the row — the last change stays attributable."""
+    game = load_member_game(session, principal, game_id, for_update=True)
+    require_host(session, principal, game)
+    if game.state not in (GameState.settling, GameState.closed):
+        raise invalid_state_transition(game.state.value, "paid")
+    for uid in (from_user, to_user):
+        if session.get(GameMember, (game_id, uid)) is None:
+            raise not_found("user")
+    mark = session.get(PaymentMark, (game_id, from_user, to_user))
+    if mark is None:
+        mark = PaymentMark(game_id=game_id, from_user=from_user, to_user=to_user)
+        session.add(mark)
+    mark.paid_at = datetime.now(timezone.utc) if paid else None
+    mark.marked_by = principal.user.id
+    mark.updated_at = datetime.now(timezone.utc)
+    session.flush()

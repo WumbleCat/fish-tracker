@@ -77,20 +77,22 @@ def test_guest_is_refused_host_transfer_and_cannot_receive_it(client, make_regis
     assert resp.json()["host_id"] == str(player["user_id"])
 
 
-def test_guest_is_refused_payout_details_and_history(client, make_registered):
+def test_guest_is_refused_history_but_may_hold_session_scoped_details(client, make_registered):
     host, player, guest, game = _game_with_player_and_guest(client, make_registered)
-    for call in (
-        lambda: client.get(f"/api/games/{game['id']}/payout-details", headers=auth(guest["token"])),
-        lambda: client.get("/api/users/me/history", headers=auth(guest["token"])),
-        lambda: client.put(
-            "/api/users/me/payout-details",
-            json={"account_name": "C", "sort_code": "040004", "account_number": "12345678"},
-            headers=auth(guest["token"]),
-        ),
-    ):
-        resp = call()
+    for path in ("/api/users/me/history", "/api/users/me/games"):
+        resp = client.get(path, headers=auth(guest["token"]))
         assert resp.status_code == 403
         assert resp.json()["error"] == "guest_not_permitted"
+    # a guest identity exists for one game, so its details are scoped to
+    # that session by construction (decided 2026-08-24)
+    resp = client.put(
+        "/api/users/me/payout-details",
+        json={"account_name": "C", "sort_code": "040004", "account_number": "12345678"},
+        headers=auth(guest["token"]),
+    )
+    assert resp.status_code == 200, resp.text
+    resp = client.get(f"/api/games/{game['id']}/payout-details", headers=auth(guest["token"]))
+    assert resp.status_code == 200
 
 
 def test_guest_cannot_create_a_game(client, make_registered):

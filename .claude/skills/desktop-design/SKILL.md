@@ -183,7 +183,10 @@ Render as a simple ordered list, `payer → payee → amount`. Resist the urge t
 
 Home games settle through the host as banker, so the host's bank details need to be one glance away at the moment people are paying up.
 
-- **Settlement panel** holds the primary presentation: an account block for the host — account name, sort code, account number — with a copy button per field and a copy-all. This is the placement to build first.
+- **Settlement panel** holds the primary presentation: an account block for the host — account name, bank, sort code, account number — with a copy button per field and a copy-all. This is the placement to build first. Each payment row carries the host's **paid tick** (a checkbox for the host, a "paid" pill for everyone else; the counter shows `paid n/m`); a paid row drops its payee details since nobody needs them any more.
+- **A player's name in the ledger** opens their profile popover with the details they shared with this table — every member can, guests included.
+- **Bank name** sits beside the account name everywhere details render. Details can be entered at sign-up (an optional collapsible section on the sign-up card; stashed in the browser and saved on the first signed-in load, since email confirmation comes first) and in Settings.
+- **Guests** get a "Your bank details · this table only" card on the session page (`GuestPayoutForm`): what they save is scoped to that one game by construction.
 - **Session header** carries a compact "pay the host" affordance (a popover, not a permanent block) so someone can settle up before the game formally closes.
 - **Payment rows** show the payee's details inline where that payee has provided them, since not every payment goes to the host.
 - **Above the verification queue** (host only, added 2026-08-24) sits a bank-details card for the player in focus — the focused queue entry's player, else the ledger selection — as fixed rows (account name, sort code, account number; reference for non-GBP; Revolut when set) with a copy button at the end of each. It renders only when that player has shared details; otherwise nothing. The host pays out from here when verifying a cash-out.

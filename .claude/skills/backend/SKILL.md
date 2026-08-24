@@ -166,7 +166,8 @@ POST   /api/games/{id}/close             body: {acknowledge_discrepancy?}
 
 GET    /api/users/me                     profile + default currency
 PUT    /api/users/me/payout-details      owner only
-GET    /api/games/{id}/payout-details    details for members of this game, masked
+GET    /api/games/{id}/payout-details    details for members of this game, masked — readable by every member, guests included (2026-08-24)
+POST   /api/games/{id}/payments/mark     host only, settling/closed: {from_user, to_user, paid} — a paid mark beside the settlement, never in it (2026-08-24)
 GET    /api/users/me/history             lifetime stats, grouped by currency
 GET    /api/users/me/games               every table sat at (hosted flag) + own entries in every state (added 2026-08-24)
 ```
@@ -242,7 +243,7 @@ Do these in the service layer, inside a transaction, with the game row locked (`
 
 **Currency** — settable only while the game holds zero entries, host only.
 
-**Guest limits** — reject guests on: hosting, verifying, host transfer, payout details, lifetime history, and any game other than the one in their token.
+**Guest limits** — reject guests on: hosting, verifying, host transfer, lifetime history, and any game other than the one in their token. Guests MAY hold payout details (decided 2026-08-24; `payout_details.bank_name` added the same day): a guest identity exists for one game, so the row is session-scoped by construction — the old guest guard trigger and the `not jwt_is_guest()` policy clauses were removed in migration `20260824230000`. Paid marks live in `payment_marks` (host-written via the API only; members read; in the Realtime publication) and are overlaid on both settlement views by `with_paid_marks` — the snapshot itself never contains them.
 
 **Seats** — a table holds nine active members, host included (`services/seats.py`, decided 2026-08-24). Both join paths call `require_seat` before adding or re-seating a member and refuse with `table_full` `{"seats": 9}`; the `game_members_capacity` trigger (migration `20260824220000`) is the backstop against a race between two joins. A departed member holds no seat. A member joining while already seated is a no-op, not a second seat.
 
