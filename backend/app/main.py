@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
-from app.config import get_settings
+from app.config import describe_pg_url, get_settings
 from app.db import get_engine
 from app.errors import AppError
 from app.routes import auth, entries, games, users
@@ -46,6 +46,13 @@ def health():
         with get_engine().connect() as conn:
             conn.execute(text("SELECT 1"))
     except Exception as exc:
-        logger.warning("health: db unavailable: %s: %s", type(exc).__name__, exc)
+        settings = get_settings()
+        logger.warning(
+            "health: db unavailable: %s: %s [source=%s %s]",
+            type(exc).__name__,
+            exc,
+            settings.database_url_source,
+            describe_pg_url(settings.database_url),
+        )
         db = "unavailable"
     return {"status": "ok", "db": db}

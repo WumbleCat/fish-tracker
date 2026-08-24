@@ -2,9 +2,16 @@
 params psycopg refuses; normalization must produce a clean psycopg URL and
 keep TLS for hosted connections."""
 
-from sqlalchemy.engine import make_url
+from sqlalchemy.engine import URL, make_url
 
-from app.config import DEV_JWT_SECRET, Settings, normalize_pg_url
+from app.config import (
+    DEV_JWT_SECRET,
+    Settings,
+    describe_pg_url,
+    engine_url,
+    normalize_pg_url,
+    split_pg_url,
+)
 
 
 def test_integration_url_is_normalized_for_psycopg():
@@ -74,6 +81,48 @@ def test_hs256_disabled_only_in_production_with_dev_secret(monkeypatch):
     monkeypatch.setenv("VERCEL", "1")
     assert Settings(supabase_jwt_secret=DEV_JWT_SECRET).hs256_available is False
     assert Settings(supabase_jwt_secret="a-real-secret-of-decent-length!!").hs256_available is True
+
+
+def test_engine_url_carries_raw_password_untouched():
+    # the engine consumes components, never a re-parsed string — any
+    # password survives verbatim
+    nasty = "p@ss w0rd?#/%:"
+    u = engine_url(f"postgres://user:{nasty}@db.example.com:6543/postgres?supa=x")
+    assert isinstance(u, URL)
+    assert u.password == nasty
+    assert u.username == "user"
+    assert u.host == "db.example.com"
+    assert u.port == 6543
+    assert u.database == "postgres"
+    assert u.query == {"sslmode": "require"}
+
+
+def test_engine_url_decodes_already_encoded_password():
+    u = engine_url("postgres://user:p%40ss@db.example.com:5432/postgres")
+    assert isinstance(u, URL)
+    assert u.password == "p@ss"
+
+
+def test_engine_url_local_skips_ssl_and_non_pg_passes_through():
+    u = engine_url("postgresql+psycopg://postgres:postgres@127.0.0.1:54322/postgres")
+    assert isinstance(u, URL)
+    assert u.query == {}
+    assert engine_url("sqlite:///nope.db") == "sqlite:///nope.db"
+
+
+def test_describe_pg_url_never_contains_the_password():
+    described = describe_pg_url("postgres://user:hunter2@db.example.com:5432/postgres")
+    assert "hunter2" not in described
+    assert "password_len=7" in described
+    assert "host=db.example.com" in described
+    # an unrecognized value (a mispasted secret, say) is not echoed back
+    assert "sbp_secret" not in describe_pg_url("sbp_secret_value_here")
+
+
+def test_split_pg_url_handles_missing_credentials():
+    parts = split_pg_url("postgres://db.example.com:5432/postgres")
+    assert parts["username"] is None and parts["password"] is None
+    assert parts["host"] == "db.example.com"
 
 
 def test_postgres_url_fallback_applies_when_database_url_is_local(monkeypatch):

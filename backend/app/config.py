@@ -1,11 +1,75 @@
 import os
 from functools import lru_cache
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from sqlalchemy.engine import make_url
+from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import ArgumentError
+
+PG_PREFIXES = ("postgresql+psycopg://", "postgresql://", "postgres://")
+
+
+def split_pg_url(url: str) -> dict | None:
+    """Break a postgres URL into components without trusting it to be
+    URL-encoded. None when it isn't a postgres URL at all."""
+    url = url.strip().strip("'\"")
+    for prefix in PG_PREFIXES:
+        if url.startswith(prefix):
+            rest = url[len(prefix):]
+            break
+    else:
+        return None
+    # split credentials at the LAST @ — a raw password may itself hold @
+    creds, at, host_part = rest.rpartition("@")
+    host_part = host_part.split("?", 1)[0]
+    hostport, _, database = host_part.partition("/")
+    host, colon, port = hostport.rpartition(":")
+    if not colon or not port.isdigit():
+        host, port = hostport, ""
+    username = password = None
+    if at:
+        raw_user, pcolon, raw_password = creds.partition(":")
+        # unquote is a no-op on raw values (invalid % escapes pass through)
+        # and corrects properly-encoded ones
+        username = unquote(raw_user)
+        password = unquote(raw_password) if pcolon else None
+    return {
+        "username": username,
+        "password": password,
+        "host": host or None,
+        "port": int(port) if port else None,
+        "database": database or None,
+    }
+
+
+def engine_url(url: str) -> URL | str:
+    """What create_engine actually receives. Built from components so the
+    raw string is never URL-parsed again — a password full of @ ? # or
+    spaces cannot break or corrupt it."""
+    parts = split_pg_url(url)
+    if parts is None:
+        return url
+    is_local = (parts["host"] or "").startswith(("127.0.0.1", "localhost"))
+    return URL.create(
+        drivername="postgresql+psycopg",
+        query={} if is_local else {"sslmode": "require"},
+        **parts,
+    )
+
+
+def describe_pg_url(url: str) -> str:
+    """A shape safe to log: never the password, never an unrecognized
+    value (it could be a mispasted secret)."""
+    parts = split_pg_url(url)
+    if parts is None:
+        scheme = url.split("://", 1)[0] if "://" in url else "<no-scheme>"
+        return f"unrecognized url: scheme={scheme} len={len(url)}"
+    pw = parts["password"]
+    return (
+        f"user={parts['username']} password_len={len(pw) if pw is not None else 'none'} "
+        f"host={parts['host']} port={parts['port']} db={parts['database']}"
+    )
 
 # The local supabase-start secret. If production is still running on this
 # publicly-known value, HS256 tokens are forgeable and must be refused.
@@ -68,17 +132,20 @@ class Settings(BaseSettings):
         "https://fish-tracker-web.vercel.app"
     )
     guest_token_ttl_hours: int = 48
+    # which env var the connection string came from — diagnostic only
+    database_url_source: str = "DATABASE_URL/default"
 
     @model_validator(mode="after")
     def _apply_integration_fallbacks(self):
         # DATABASE_URL wins when set; otherwise the Supabase<->Vercel
         # integration's POSTGRES_URL (pooled) or POSTGRES_URL_NON_POOLING.
         if "127.0.0.1" in self.database_url or "localhost" in self.database_url:
-            injected = os.environ.get("POSTGRES_URL") or os.environ.get(
-                "POSTGRES_URL_NON_POOLING"
-            )
-            if injected:
-                self.database_url = injected
+            for var in ("POSTGRES_URL", "POSTGRES_URL_NON_POOLING"):
+                injected = os.environ.get(var)
+                if injected and injected.strip():
+                    self.database_url = injected
+                    self.database_url_source = var
+                    break
         self.database_url = normalize_pg_url(self.database_url)
         if not self.supabase_service_role_key:
             self.supabase_service_role_key = os.environ.get("SUPABASE_SECRET_KEY", "")

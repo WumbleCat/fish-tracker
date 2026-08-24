@@ -5,7 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import NullPool
 
-from app.config import get_settings
+from app.config import engine_url, get_settings
 
 _engine = None
 _session_factory = None
@@ -20,8 +20,10 @@ def get_engine():
             # Supabase pooler immediately instead of idling in a frozen
             # function instance.
             kwargs["poolclass"] = NullPool
+        # component-built URL: never re-parses the raw string, so an
+        # un-encoded password can't break it
         _engine = create_engine(
-            get_settings().database_url,
+            engine_url(get_settings().database_url),
             pool_pre_ping=True,
             # PgBouncer (Supabase's pooler) can't track psycopg's automatic
             # prepared statements across pooled connections.
