@@ -134,6 +134,10 @@ Handling rules, not negotiable:
 - Never logged, never sent to analytics or crash reporting, never in a URL or deep link, never included in a shared settlement summary. The share sheet exports names and amounts, never bank details.
 - Only render what the API returns for this game. No placeholders implying someone is missing something.
 
+## Typeface (decided 2026-08-24)
+
+The house face is **Aperçu Medium**. Every screen imports `Text` from `components/Text` (never from `react-native`), which applies `font-sans` → `Apercu-Medium` from `tailwind.config.js`; `lib/fonts.ts` loads whatever `lib/font-sources.ts` lists with `expo-font` and holds the splash until it's in. The licensed file is gitignored — drop it into `assets/fonts/` and uncomment the one `require` line (see the README there). Until then the platform default renders.
+
 ## Feel
 
 - Tap targets 44pt minimum, and the primary entry action considerably larger.

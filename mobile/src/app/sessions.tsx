@@ -3,7 +3,8 @@
 
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
-import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
+import { FlatList, Pressable, TextInput, View } from 'react-native';
+import { Text } from '../components/Text';
 
 import { AmountText } from '../components/AmountText';
 import { api } from '../lib/api';

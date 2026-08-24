@@ -1,7 +1,8 @@
 /** A big numeric keypad for a dim room. Digits, decimal (when the game's
  * exponent allows one), backspace. Targets well above 44dp. */
 
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { Text } from './Text';
 
 const KEY_HEIGHT = 56;
 

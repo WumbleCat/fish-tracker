@@ -2,7 +2,8 @@
  * pending chip. Sorted by net descending; people look to see who's up.
  * A player mid-game correctly shows their buy-ins in the red. */
 
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
+import { Text } from './Text';
 
 import { sortNetsDescending } from '../lib/ledger';
 import type { Game } from '../lib/types';

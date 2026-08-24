@@ -6,7 +6,8 @@
  * cash-out is an invitation to accept a wrong one. */
 
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { Text } from './Text';
 
 import { fmtMinor, parseToMinor, toDecimalString } from '../lib/money';
 import type { EntryType } from '../lib/types';

@@ -4,7 +4,8 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
+import { Text } from '../../../components/Text';
 
 import { VerifyCard } from '../../../components/VerifyCard';
 import { rejectEntry, verifyEntry } from '../../../lib/actions';

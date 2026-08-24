@@ -64,6 +64,14 @@ pnpm-debug.log*
 web/dist/
 .vite/
 
+# Licensed font files (Aperçu) — never in a public repo; see web/public/fonts/README.md
+web/public/fonts/*.woff
+web/public/fonts/*.woff2
+web/public/fonts/*.otf
+web/public/fonts/*.ttf
+mobile/assets/fonts/*.otf
+mobile/assets/fonts/*.ttf
+
 # Expo / React Native
 .expo/
 .expo-shared/

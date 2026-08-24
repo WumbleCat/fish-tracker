@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, Text, TextInput } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, TextInput } from 'react-native';
+import { Text } from '../components/Text';
 
 import { supabase } from '../lib/supabase';
 

@@ -6,7 +6,8 @@ import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
+import { Text } from '../../../components/Text';
 
 import { AmountText } from '../../../components/AmountText';
 import { EntrySheetContent } from '../../../components/EntrySheetContent';

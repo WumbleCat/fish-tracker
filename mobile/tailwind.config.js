@@ -4,6 +4,12 @@ module.exports = {
   presets: [require('nativewind/preset')],
   theme: {
     extend: {
+      // The house face, loaded by lib/fonts.ts and applied through
+      // components/Text. An unloaded family falls back to the platform
+      // default, so the app still renders before the licensed file is added.
+      fontFamily: {
+        sans: ['Apercu-Medium'],
+      },
       // Dark is the default worth designing for: this app is used at night.
       colors: {
         felt: {

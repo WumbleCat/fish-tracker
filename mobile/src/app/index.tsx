@@ -3,7 +3,8 @@
 
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, TextInput, View } from 'react-native';
+import { Text } from '../components/Text';
 
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
