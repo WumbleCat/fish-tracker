@@ -38,51 +38,81 @@ export function SettlementPanel({
 
   const mismatch = settlement.discrepancy_minor !== 0;
   const gated = mismatch && !settlement.final && !acknowledged;
+  // The counter: identical rows in every state, no prose. The GAP row is
+  // the reconciliation surface — amber and gating when nonzero, ✓ when not.
+  const buyIns = game.totals.verified_buy_ins_minor;
+  const cashOuts = game.totals.verified_cash_outs_minor;
 
   return (
     <section aria-label="settlement" className="space-y-3">
-      {settlement.pending_count > 0 && (
-        <p className="rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          {settlement.pending_count} entr{settlement.pending_count === 1 ? 'y' : 'ies'} still
-          awaiting verification — the game can't close until every claim is resolved.
+      <dl
+        data-testid="settle-counter"
+        className="divide-y divide-neutral-100 rounded border border-neutral-200 bg-white text-sm"
+      >
+        <div className="flex items-center justify-between px-3 py-2">
+          <dt className="text-xs uppercase tracking-wide text-neutral-500">Buy-ins</dt>
+          <dd className="num font-medium">{fmtMinor(buyIns, currency, exponent)}</dd>
+        </div>
+        <div className="flex items-center justify-between px-3 py-2">
+          <dt className="text-xs uppercase tracking-wide text-neutral-500">Cash-outs</dt>
+          <dd className="num font-medium">{fmtMinor(cashOuts, currency, exponent)}</dd>
+        </div>
+        <div
+          data-testid="settle-gap"
+          role={mismatch ? 'alert' : undefined}
+          className={`flex items-center justify-between px-3 py-2 ${
+            mismatch ? 'bg-amber-50' : ''
+          }`}
+        >
+          <dt
+            className={`text-xs font-semibold uppercase tracking-wide ${
+              mismatch ? 'text-amber-800' : 'text-neutral-500'
+            }`}
+          >
+            Gap
+          </dt>
+          <dd className="num flex items-center gap-2 font-semibold">
+            {mismatch ? (
+              <>
+                {fmtMinor(Math.abs(settlement.discrepancy_minor), currency, exponent)}
+                <span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-bold text-amber-900">
+                  {settlement.discrepancy_minor > 0 ? 'short' : 'over'}
+                </span>
+              </>
+            ) : (
+              <span className="text-emerald-700">
+                {fmtMinor(0, currency, exponent)} ✓
+              </span>
+            )}
+          </dd>
+        </div>
+        {settlement.pending_count > 0 && (
+          <div className="flex items-center justify-between bg-amber-50 px-3 py-2">
+            <dt className="text-xs font-semibold uppercase tracking-wide text-amber-800">
+              Pending
+            </dt>
+            <dd className="num font-semibold text-amber-800">{settlement.pending_count}</dd>
+          </div>
+        )}
+      </dl>
+
+      {mismatch && !settlement.final && (
+        <label className="flex items-center gap-2 text-sm text-amber-900">
+          <input
+            type="checkbox"
+            checked={acknowledged}
+            onChange={(e) => setAcknowledged(e.target.checked)}
+          />
+          settle with gap on record
+        </label>
+      )}
+      {mismatch && settlement.final && settlement.acknowledged_by && (
+        <p className="num text-xs text-neutral-500">
+          gap on record · {nameOf(settlement.acknowledged_by)}
         </p>
       )}
 
-      {mismatch && (
-        <div
-          role="alert"
-          className="rounded border border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-900"
-        >
-          <p className="font-semibold">
-            Doesn't balance: verified buy-ins exceed cash-outs by{' '}
-            {fmtMinor(Math.abs(settlement.discrepancy_minor), currency, exponent)}
-            {settlement.discrepancy_minor < 0 && ' (the other way round)'}
-          </p>
-          <p className="mt-1">
-            Chips are missing or miscounted. Recount the tray, or log the missing entry —
-            or acknowledge the gap to settle anyway.
-          </p>
-          {!settlement.final && (
-            <label className="mt-2 flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={acknowledged}
-                onChange={(e) => setAcknowledged(e.target.checked)}
-              />
-              I've checked; settle with this discrepancy on the record
-            </label>
-          )}
-          {settlement.final && settlement.acknowledged_by && (
-            <p className="mt-1 text-xs">
-              Acknowledged at close by {nameOf(settlement.acknowledged_by)}.
-            </p>
-          )}
-        </div>
-      )}
-
-      {gated ? (
-        <p className="text-sm text-neutral-500">Payments appear once the discrepancy is acknowledged.</p>
-      ) : (
+      {gated ? null : (
         <>
           <ol aria-label="payments" className="space-y-2">
             {settlement.payments.length === 0 && (

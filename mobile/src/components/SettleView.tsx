@@ -69,52 +69,98 @@ export function SettleView({
   const gated = mismatch && !settlement.final && !acknowledged;
   const detailFor = (id: string) => payoutDetails?.find((d) => d.user_id === id) ?? null;
   const hostDetails = detailFor(game.host_id);
+  // The counter: identical rows in every state, no prose. GAP is the
+  // reconciliation surface — amber and gating when nonzero, ✓ when not.
+  const buyIns = game.totals.verified_buy_ins_minor;
+  const cashOuts = game.totals.verified_cash_outs_minor;
+
+  const rowStyle = {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  };
+  const labelStyle = { color: '#9fb0a8', fontSize: 12, letterSpacing: 1 };
 
   return (
     <View style={{ gap: 12 }}>
-      {settlement.pending_count > 0 && (
-        <Text style={{ color: '#fbbf24' }}>
-          {settlement.pending_count} entries still awaiting verification — the game can't close
-          until every claim is resolved.
-        </Text>
-      )}
-
-      {mismatch && (
-        <View
-          testID="recon-banner"
-          style={{
-            backgroundColor: 'rgba(251,191,36,0.12)',
-            borderColor: '#fbbf24',
-            borderWidth: 1,
-            borderRadius: 12,
-            padding: 12,
-            gap: 6,
-          }}
-        >
-          <Text style={{ color: '#fbbf24', fontWeight: '700' }}>
-            Doesn't balance: buy-ins exceed cash-outs by{' '}
-            {fmtMinor(Math.abs(settlement.discrepancy_minor), currency, exponent)}
+      <View style={{ backgroundColor: '#111a16', borderRadius: 12, overflow: 'hidden' }}>
+        <View style={rowStyle}>
+          <Text style={labelStyle}>BUY-INS</Text>
+          <Text style={{ color: '#e7ece9', fontWeight: '600', fontVariant: ['tabular-nums'] }}>
+            {fmtMinor(buyIns, currency, exponent)}
           </Text>
-          <Text style={{ color: '#e7ece9' }}>
-            Recount the chips or log the missing entry — or acknowledge the gap to settle anyway.
-          </Text>
-          {!settlement.final && (
-            <Pressable
-              testID="acknowledge-toggle"
-              onPress={() => setAcknowledged((a) => !a)}
-              style={{ minHeight: 44, justifyContent: 'center' }}
-            >
-              <Text style={{ color: acknowledged ? '#34d399' : '#9fb0a8' }}>
-                {acknowledged ? '☑' : '☐'} I've checked — settle with this gap on the record
-              </Text>
-            </Pressable>
-          )}
         </View>
+        <View style={rowStyle}>
+          <Text style={labelStyle}>CASH-OUTS</Text>
+          <Text style={{ color: '#e7ece9', fontWeight: '600', fontVariant: ['tabular-nums'] }}>
+            {fmtMinor(cashOuts, currency, exponent)}
+          </Text>
+        </View>
+        <View
+          testID={mismatch ? 'recon-banner' : 'gap-balanced'}
+          style={[rowStyle, mismatch ? { backgroundColor: 'rgba(251,191,36,0.14)' } : null]}
+        >
+          <Text style={[labelStyle, mismatch ? { color: '#fbbf24', fontWeight: '700' } : null]}>
+            GAP
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {mismatch ? (
+              <>
+                <Text style={{ color: '#fbbf24', fontWeight: '700', fontVariant: ['tabular-nums'] }}>
+                  {fmtMinor(Math.abs(settlement.discrepancy_minor), currency, exponent)}
+                </Text>
+                <Text
+                  style={{
+                    color: '#0b1210',
+                    backgroundColor: '#fbbf24',
+                    fontWeight: '800',
+                    fontSize: 11,
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 10,
+                    overflow: 'hidden',
+                  }}
+                >
+                  {settlement.discrepancy_minor > 0 ? 'SHORT' : 'OVER'}
+                </Text>
+              </>
+            ) : (
+              <Text style={{ color: '#34d399', fontWeight: '700', fontVariant: ['tabular-nums'] }}>
+                {fmtMinor(0, currency, exponent)} ✓
+              </Text>
+            )}
+          </View>
+        </View>
+        {settlement.pending_count > 0 && (
+          <View style={[rowStyle, { backgroundColor: 'rgba(251,191,36,0.14)' }]}>
+            <Text style={[labelStyle, { color: '#fbbf24', fontWeight: '700' }]}>PENDING</Text>
+            <Text style={{ color: '#fbbf24', fontWeight: '700', fontVariant: ['tabular-nums'] }}>
+              {settlement.pending_count}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {mismatch && !settlement.final && (
+        <Pressable
+          testID="acknowledge-toggle"
+          onPress={() => setAcknowledged((a) => !a)}
+          style={{ minHeight: 44, justifyContent: 'center' }}
+        >
+          <Text style={{ color: acknowledged ? '#34d399' : '#9fb0a8' }}>
+            {acknowledged ? '☑' : '☐'} settle with gap on record
+          </Text>
+        </Pressable>
+      )}
+      {mismatch && settlement.final && settlement.acknowledged_by && (
+        <Text style={{ color: '#9fb0a8', fontSize: 12 }}>gap on record</Text>
       )}
 
       {gated ? (
         <Text testID="payments-gated" style={{ color: '#9fb0a8' }}>
-          Payments appear once the discrepancy is acknowledged.
+          🔒 payments
         </Text>
       ) : (
         <View testID="payments-list" style={{ gap: 8 }}>
