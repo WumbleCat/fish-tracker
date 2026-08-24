@@ -4,7 +4,8 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Text } from '../components/Text';
 
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';

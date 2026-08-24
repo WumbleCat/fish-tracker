@@ -4,7 +4,8 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
+import { FlatList, Pressable, TextInput, View } from 'react-native';
+import { Text } from '../../../components/Text';
 
 import { AmountText } from '../../../components/AmountText';
 import { amendEntry } from '../../../lib/actions';

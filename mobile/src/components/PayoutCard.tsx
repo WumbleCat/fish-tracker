@@ -5,7 +5,8 @@
 
 import * as Clipboard from 'expo-clipboard';
 import { useState } from 'react';
-import { Linking, Pressable, Text, View } from 'react-native';
+import { Linking, Pressable, View } from 'react-native';
+import { Text } from './Text';
 
 import { supabase } from '../lib/supabase';
 import type { PayoutDetailsMasked } from '../lib/types';

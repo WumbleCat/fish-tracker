@@ -125,6 +125,10 @@ A currency bar in the app header sets the user's default currency for **new** ga
 - Read the exponent from the game rather than assuming 2. A JPY game has no decimal places and must not render `¥1000.00`.
 - Lifetime history is grouped per currency, never summed across currencies. There is no FX in this product.
 
+## Typeface (decided 2026-08-24)
+
+The house face is **Aperçu Medium** (Colophon Foundry). It is licensed, so the files are gitignored and must be dropped into `web/public/fonts/` by hand (see the README there); `index.css` declares the `@font-face`, makes it the `font-sans` stack and sets body weight 500, falling through to the system face at the same weight until the files exist. Because the frontend builds from git, production only gets the font once the files are committed to a private repo or hosted on a URL — never commit them to a public one.
+
 ## Light and dark mode (added 2026-08-24)
 
 Components use the Tailwind palette directly (`bg-white`, `text-neutral-500`, `bg-amber-50`…) and never `dark:` variants. Dark mode is one block in `index.css`: under `.dark` the palette's CSS variables are re-pointed (neutrals invert, status tints move to dark backgrounds and light text), and Tailwind v4 utilities read those variables at runtime, so every surface follows. `lib/theme.ts` owns the choice (light / dark / system, persisted as `fish-theme`), `ThemeToggle` sits in the header (and top-right of the landing page), and `index.html` applies the saved theme inline before first paint so there is no white flash. When adding a colour, pick it from the palette — a hard-coded hex will not follow the theme. Sign and pending colours must stay distinguishable in both modes, and colour is still never the only signal.

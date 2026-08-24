@@ -1,7 +1,8 @@
 /** The one way an amount reaches the screen. Sign carried by +/− first,
  * colour second — never colour alone. Tabular figures throughout. */
 
-import { Text, type TextStyle } from 'react-native';
+import { type TextStyle } from 'react-native';
+import { Text } from './Text';
 
 import { fmtMinor, fmtSigned } from '../lib/money';
 

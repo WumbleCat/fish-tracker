@@ -2,7 +2,25 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Aperçu Medium is the house face. It is a licensed font, so the files are
+   not in the repository: drop apercu-medium.woff2 (and .woff) into
+   web/public/fonts/ — see the README there. Until they are present the
+   stack falls through to the system UI face, at the same weight. */
+@font-face {
+  font-family: 'Apercu';
+  src:
+    url('/fonts/apercu-medium.woff2') format('woff2'),
+    url('/fonts/apercu-medium.woff') format('woff');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme {
+  --font-sans:
+    'Apercu', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-weight-normal: 500;
+
   --color-felt-50: #f4f7f4;
   --color-felt-800: #1d2a22;
   --color-felt-900: #15201a;
@@ -54,7 +72,9 @@
 }
 
 body {
-  @apply bg-neutral-50 text-neutral-900 antialiased;
+  @apply bg-neutral-50 font-sans text-neutral-900 antialiased;
+  /* the Medium cut is the body weight; heavier utilities still step up */
+  font-weight: 500;
 }
 
 /* Every figure in a column: digits align so anomalies jump out. */

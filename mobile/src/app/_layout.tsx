@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import '../nativewind.css';
 import { useAuth } from '../lib/auth';
+import { APP_FONT, useAppFonts } from '../lib/fonts';
 import { useConnectivity } from '../lib/online';
 
 const queryClient = new QueryClient({
@@ -22,6 +23,10 @@ function Boot({ children }: { children: React.ReactNode }) {
 }
 
 export default function RootLayout() {
+  // the splash stays up until the house font is in (see lib/fonts.ts)
+  const fontsReady = useAppFonts();
+  if (!fontsReady) return null;
+
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#0b1210' }}>
       <QueryClientProvider client={queryClient}>
@@ -32,6 +37,7 @@ export default function RootLayout() {
             screenOptions={{
               headerStyle: { backgroundColor: '#0b1210' },
               headerTintColor: '#e7ece9',
+              headerTitleStyle: { fontFamily: APP_FONT },
               contentStyle: { backgroundColor: '#0b1210' },
             }}
           />

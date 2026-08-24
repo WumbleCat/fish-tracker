@@ -1,6 +1,7 @@
 /** Persistent, unobtrusive; queued entries visible and counted. */
 
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
+import { Text } from './Text';
 
 import { useOnline } from '../lib/online';
 import { useEntryQueue } from '../lib/queue';

@@ -3,7 +3,8 @@
  * summary string, by construction. */
 
 import { useState } from 'react';
-import { Pressable, Share, Text, View } from 'react-native';
+import { Pressable, Share, View } from 'react-native';
+import { Text } from './Text';
 
 import { fmtMinor } from '../lib/money';
 import type { Game, PayoutDetailsMasked, Settlement } from '../lib/types';
