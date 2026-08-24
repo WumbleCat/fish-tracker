@@ -12,7 +12,10 @@ class Settings(BaseSettings):
         "super-secret-jwt-token-with-at-least-32-characters-long"
     )
     database_url: str = "postgresql+psycopg://postgres:postgres@127.0.0.1:54322/postgres"
-    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8081"
+    cors_origins: str = (
+        "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8081,"
+        "https://fish-tracker-web.vercel.app"
+    )
     guest_token_ttl_hours: int = 48
 
     @property
