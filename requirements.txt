@@ -1,3 +1,9 @@
-# Root deploy manifest for git-triggered Vercel builds of the API — the
-# real list lives with the backend.
--r backend/requirements.txt
+# Root deploy manifest for git-triggered Vercel builds of the API. Kept in
+# step with backend/requirements.txt by hand — Vercel's parser cannot follow
+# a `-r` include.
+fastapi>=0.115
+sqlalchemy>=2.0.30
+psycopg[binary]>=3.2
+pydantic>=2.7
+pydantic-settings>=2.3
+pyjwt[crypto]>=2.8
