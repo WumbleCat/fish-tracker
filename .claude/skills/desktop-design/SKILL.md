@@ -151,7 +151,7 @@ Never soften a loss. Rounding a downswing toward zero, or styling it in a gentle
 - **Sessions list** — date, stake, player count, currency, total pot, reconciliation status. Sortable, filterable by date range and player.
 - **Session detail** — the primary screen. Ledger table (player, buy-ins, rebuys, cash-out, **live net**, pending), chips-on-table and settleable totals, host verification queue, settlement panel alongside.
 - **Verification queue** — the host's working surface: every pending entry, oldest first, each with verify / reject / reject-with-note. One row at a time, keyboard-driven.
-- **Player profile** — lifetime net per currency, sessions played, best and worst results, average buy-in, rebuy rate, outstanding balance, cumulative net line chart.
+- **Player profile** — lifetime net per currency with a cumulative net line chart over closed tables; **tables hosted**; and **every table sat at** (added 2026-08-24, from `GET /api/users/me/games`) with buy-ins, cash-outs and net per table, each expanding to the player's own entries in every state — a pending or rejected entry is listed, never counted.
 - **Settlement** — the ordered list of who pays whom, payout details, and a copy-to-clipboard summary for pasting into a group chat.
 - **Account settings** — display name, default currency, and payout details.
 

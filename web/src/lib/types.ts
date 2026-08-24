@@ -114,6 +114,32 @@ export interface PayoutDetailsMasked {
   revolut_link: string | null;
 }
 
+export interface HistoryEntry {
+  id: string;
+  entry_type: EntryType;
+  amount_minor: number;
+  state: EntryState;
+  created_at: string;
+}
+
+/** One table this player sat at. Money counts verified entries only;
+ * every entry is listed regardless of state. */
+export interface GameHistory {
+  game_id: string;
+  name: string;
+  state: GameState;
+  created_at: string;
+  closed_at: string | null;
+  currency: string;
+  currency_exponent: number;
+  role: MemberRole;
+  hosted: boolean;
+  buy_ins_minor: number;
+  cash_outs_minor: number;
+  net_minor: number;
+  entries: HistoryEntry[];
+}
+
 export interface CurrencyHistory {
   currency: string;
   currency_exponent: number;

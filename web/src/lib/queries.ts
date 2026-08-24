@@ -68,6 +68,10 @@ export function useHistory(enabled: boolean) {
   return useQuery({ queryKey: ['history'], queryFn: api.history, enabled });
 }
 
+export function useMyGames(enabled: boolean) {
+  return useQuery({ queryKey: ['my-games'], queryFn: api.myGames, enabled });
+}
+
 /**
  * Live nets: subscribe to this game's entries and roster over Supabase
  * Realtime, and use each event ONLY to invalidate the query cache. The

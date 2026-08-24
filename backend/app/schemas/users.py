@@ -64,3 +64,34 @@ class CurrencyHistory(BaseModel):
 class HistoryOut(BaseModel):
     # Grouped by currency, never summed across them. There is no FX here.
     currencies: list[CurrencyHistory]
+
+
+class HistoryEntryOut(BaseModel):
+    id: uuid.UUID
+    entry_type: str
+    amount_minor: StrictInt
+    state: str
+    created_at: datetime
+
+
+class GameHistoryOut(BaseModel):
+    """One table this player sat at, with their own entries. Money counts
+    verified entries only; every entry is listed regardless of state."""
+
+    game_id: uuid.UUID
+    name: str
+    state: str
+    created_at: datetime
+    closed_at: datetime | None
+    currency: str
+    currency_exponent: int
+    role: str
+    hosted: bool
+    buy_ins_minor: StrictInt
+    cash_outs_minor: StrictInt
+    net_minor: StrictInt
+    entries: list[HistoryEntryOut]
+
+
+class GamesHistoryOut(BaseModel):
+    games: list[GameHistoryOut]
