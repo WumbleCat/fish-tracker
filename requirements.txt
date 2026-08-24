@@ -1,0 +1,3 @@
+# Root deploy manifest for git-triggered Vercel builds of the API — the
+# real list lives with the backend.
+-r backend/requirements.txt

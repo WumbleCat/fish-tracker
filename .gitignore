@@ -27,6 +27,9 @@ htmlcov/
 .env
 .env.*
 !.env.example
+# web/.env.production holds ONLY public VITE_ values (compiled into the
+# browser bundle anyway); secrets never go there
+!web/.env.production
 *.pem
 *.key
 
