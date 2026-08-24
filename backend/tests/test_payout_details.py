@@ -10,6 +10,7 @@ DETAILS = {
     "account_name": "H Example",
     "sort_code": "040004",
     "account_number": "12345678",
+    "revolut_link": "https://revolut.me/hexample",
 }
 
 
@@ -30,6 +31,8 @@ def test_members_see_masked_details_nonmembers_see_nothing(client, make_register
     assert rows[0]["account_number_masked"] == "••••5678"
     assert "account_number" not in rows[0]
     assert rows[0]["sort_code"] == "040004"
+    # a Revolut link is a public handle — shown in full, no masking
+    assert rows[0]["revolut_link"] == "https://revolut.me/hexample"
 
     # a non-member gets the same shape as a missing game — nothing to probe
     resp = client.get(f"/api/games/{game['id']}/payout-details", headers=auth(outsider))
@@ -63,6 +66,26 @@ def test_settlement_snapshot_never_contains_payout_details(
     assert "H Example" not in raw
     for payment in json.loads(raw):
         assert set(payment.keys()) == {"from_user", "to_user", "amount_minor"}
+
+
+def test_revolut_link_format_is_a_typo_catcher(client, make_registered):
+    host = make_registered("host@test.local", "Host")
+    for bad in ("revolut.me/", "https://example.com/pay", "not-a-link"):
+        resp = client.put(
+            "/api/users/me/payout-details",
+            json={"revolut_link": bad},
+            headers=auth(host),
+        )
+        assert resp.status_code == 422, f"{bad} should be refused"
+    # both bare and https:// forms are fine
+    for good in ("revolut.me/hexample", "https://revolut.me/h.example-1"):
+        resp = client.put(
+            "/api/users/me/payout-details",
+            json={"revolut_link": good},
+            headers=auth(host),
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["revolut_link"] == good
 
 
 def test_guest_cannot_store_details_even_at_the_database(client, make_registered, engine):

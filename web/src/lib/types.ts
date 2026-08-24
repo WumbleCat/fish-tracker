@@ -108,6 +108,7 @@ export interface PayoutDetailsMasked {
   sort_code: string | null;
   account_number_masked: string | null;
   payment_reference: string | null;
+  revolut_link: string | null;
 }
 
 export interface CurrencyHistory {

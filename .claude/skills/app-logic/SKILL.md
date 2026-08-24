@@ -167,7 +167,7 @@ Settlement is computed server-side and rendered by clients. Two implementations 
 
 Settling up means someone typing a sort code into their banking app at 1am. The ledger should make that a copy-paste, not a shouted conversation.
 
-- Any registered user may store **payout details**: account name, sort code and account number (UK), or a free-text payment reference for other currencies (IBAN, a payment-link, whatever the group uses). Entirely optional — a user who never enters them loses convenience, nothing else.
+- Any registered user may store **payout details**: account name, sort code and account number (UK), a **Revolut link** (revolut.me/…, added 2026-08-24 as a first-class field — it renders whatever the game's currency, since Revolut spans currencies), or a free-text payment reference for other currencies (IBAN, a payment-link, whatever the group uses). Entirely optional — a user who never enters them loses convenience, nothing else.
 - Guests cannot store payout details; nothing outlives their game to hold them.
 - The **host's** details are surfaced most prominently, because home games are usually settled through the host as banker. Exact placement is each client's call (`design` puts them in the settlement panel with a compact reference in the game header; `mobile` on the settle screen), but they must be reachable from wherever a payment is shown.
 - On an individual payment row, show the **payee's** details when that payee has provided any. The payer is the person who needs them.
@@ -177,7 +177,7 @@ Rules that are not negotiable:
 - Payout details are visible only to players in a game they are settling with that person. Never public, never on a profile a stranger can reach, never returned by an endpoint that isn't scoped to a shared game.
 - Never write them to logs, error reports or analytics, and never embed them in the persisted settlement snapshot. The snapshot records who owes whom; details are looked up live, so a user who changes or removes them isn't leaking an old account number out of history.
 - Mask the account number by default (`••••1234`) behind an explicit reveal or copy action. Copy is the action people actually use.
-- Validate format on entry (UK sort code: 6 digits; account number: 8 digits) but treat it as a typo-catcher, not verification. The app never confirms an account exists, and must never imply it has.
+- Validate format on entry (UK sort code: 6 digits; account number: 8 digits; Revolut link: revolut.me/handle) but treat it as a typo-catcher, not verification. The app never confirms an account exists, and must never imply it has. A Revolut link, unlike an account number, is a public handle and is shown unmasked — the visibility scoping (shared game only) still applies.
 
 ## Joining
 

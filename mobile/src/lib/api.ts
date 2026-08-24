@@ -78,6 +78,7 @@ export const api = {
     sort_code?: string | null;
     account_number?: string | null;
     payment_reference?: string | null;
+    revolut_link?: string | null;
   }) => request('PUT', '/api/users/me/payout-details', details),
   registerPushToken: (token: string) =>
     request<void>('POST', '/api/users/me/push-token', { token }),

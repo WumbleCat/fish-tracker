@@ -31,6 +31,7 @@ export default function Settings() {
   const [sortCode, setSortCode] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
+  const [revolutLink, setRevolutLink] = useState('');
   const [pushState, setPushState] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
@@ -109,6 +110,14 @@ export default function Settings() {
             placeholderTextColor="#5d6f66"
             style={field}
           />
+          <TextInput
+            value={revolutLink}
+            onChangeText={(t) => setRevolutLink(t.trim())}
+            placeholder="Revolut link — revolut.me/yourname"
+            placeholderTextColor="#5d6f66"
+            autoCapitalize="none"
+            style={field}
+          />
         </>
       )}
 
@@ -121,6 +130,9 @@ export default function Settings() {
               sort_code: /^[0-9]{6}$/.test(sortCode) ? sortCode : null,
               account_number: /^[0-9]{8}$/.test(accountNumber) ? accountNumber : null,
               payment_reference: paymentReference || null,
+              revolut_link: /^(https:\/\/)?revolut\.me\/[A-Za-z0-9._-]{2,64}$/.test(revolutLink)
+                ? revolutLink
+                : null,
             });
           }
           void queryClient.invalidateQueries({ queryKey: ['me'] });

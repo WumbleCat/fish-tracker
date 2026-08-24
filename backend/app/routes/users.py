@@ -36,12 +36,14 @@ def put_payout_details(
         body.sort_code,
         body.account_number,
         body.payment_reference,
+        body.revolut_link,
     )
     return PayoutDetailsIn(
         account_name=row.account_name,
         sort_code=row.sort_code,
         account_number=row.account_number,
         payment_reference=row.payment_reference,
+        revolut_link=row.revolut_link,
     )
 
 

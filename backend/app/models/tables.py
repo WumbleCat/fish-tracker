@@ -63,6 +63,7 @@ class PayoutDetails(Base):
     sort_code: Mapped[str | None] = mapped_column(Text)
     account_number: Mapped[str | None] = mapped_column(Text)
     payment_reference: Mapped[str | None] = mapped_column(Text)
+    revolut_link: Mapped[str | None] = mapped_column(Text)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text("now()")
     )
