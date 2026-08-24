@@ -71,6 +71,11 @@ def decode_token(token: str) -> dict:
     try:
         header = jwt.get_unverified_header(token)
         if header.get("alg") == "HS256":
+            if not get_settings().hs256_available:
+                # production without a real shared secret: an HS256 token
+                # could have been signed by anyone — never accept it
+                logger.warning("token refused: HS256 disabled (dev secret in production)")
+                raise AppError("invalid_token", 401)
             return jwt.decode(
                 token,
                 get_settings().supabase_jwt_secret,
@@ -154,6 +159,10 @@ def guest_join(
         raise not_found("game")
     if game.state not in (GameState.open, GameState.running):
         raise AppError("game_not_joinable", 409, {"state": game.state.value})
+    if not get_settings().hs256_available:
+        # guest tokens are HS256; without the real secret they'd be both
+        # forgeable and refused by Supabase RLS/Realtime
+        raise AppError("guest_unavailable", 503)
 
     user = User(display_name=display_name, is_guest=True)
     session.add(user)
