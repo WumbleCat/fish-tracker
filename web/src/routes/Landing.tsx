@@ -26,14 +26,27 @@ export function Landing() {
   const handleAuth = async (event: FormEvent) => {
     event.preventDefault();
     setAuthError(null);
+    setInfo(null);
     if (mode === 'signup') {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { display_name: displayName || email.split('@')[0] } },
+        options: {
+          data: { display_name: displayName || email.split('@')[0] },
+          // confirmation links must come back to THIS origin, not the
+          // Supabase project default
+          emailRedirectTo: window.location.origin,
+        },
       });
-      if (error) setAuthError(error.message);
-      else navigate('/sessions');
+      if (error) {
+        setAuthError(error.message);
+      } else if (!data.session) {
+        // hosted Supabase requires email confirmation before a session exists
+        setInfo(`Confirmation email sent to ${email} — open it, then sign in here.`);
+        setMode('signin');
+      } else {
+        navigate('/sessions');
+      }
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) setAuthError(error.message);
@@ -43,7 +56,10 @@ export function Landing() {
 
   const handleMagicLink = async () => {
     setAuthError(null);
-    const { error } = await supabase.auth.signInWithOtp({ email });
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.origin },
+    });
     if (error) setAuthError(error.message);
     else setInfo(`Magic link sent to ${email}`);
   };
