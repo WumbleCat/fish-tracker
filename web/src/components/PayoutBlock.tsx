@@ -50,8 +50,13 @@ export function PayoutBlock({
 }) {
   const [revealed, setRevealed] = useState<string | null>(null);
   const hasBankFields = isGbp && (details.sort_code || details.account_number_masked);
+  const revolutHref = details.revolut_link
+    ? details.revolut_link.startsWith('https://')
+      ? details.revolut_link
+      : `https://${details.revolut_link}`
+    : null;
 
-  if (!hasBankFields && !details.payment_reference) return null;
+  if (!hasBankFields && !details.payment_reference && !revolutHref) return null;
 
   return (
     <div className="rounded border border-neutral-200 bg-white p-3 text-sm" aria-label="payout details">
@@ -98,6 +103,20 @@ export function PayoutBlock({
             <CopyButton label="payment reference" getValue={async () => details.payment_reference} />
           </div>
         )
+      )}
+      {revolutHref && (
+        <div className="mt-1 flex items-center gap-2">
+          <span className="text-neutral-500">Revolut</span>
+          <a
+            href={revolutHref}
+            target="_blank"
+            rel="noreferrer"
+            className="text-emerald-700 underline underline-offset-2"
+          >
+            {details.revolut_link!.replace(/^https:\/\//, '')}
+          </a>
+          <CopyButton label="revolut link" getValue={async () => revolutHref} />
+        </div>
       )}
     </div>
   );

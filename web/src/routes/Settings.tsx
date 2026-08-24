@@ -12,6 +12,7 @@ export function Settings() {
   const [sortCode, setSortCode] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
+  const [revolutLink, setRevolutLink] = useState('');
   const [saved, setSaved] = useState<string | null>(null);
 
   useEffect(() => {
@@ -34,6 +35,7 @@ export function Settings() {
         sort_code: sortCode || null,
         account_number: accountNumber || null,
         payment_reference: paymentReference || null,
+        revolut_link: revolutLink || null,
       }),
     onSuccess: () => {
       setSaved('details');
@@ -43,6 +45,8 @@ export function Settings() {
 
   const sortCodeValid = sortCode === '' || /^[0-9]{6}$/.test(sortCode);
   const accountNumberValid = accountNumber === '' || /^[0-9]{8}$/.test(accountNumber);
+  const revolutValid =
+    revolutLink === '' || /^(https:\/\/)?revolut\.me\/[A-Za-z0-9._-]{2,64}$/.test(revolutLink);
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
@@ -83,7 +87,7 @@ export function Settings() {
           className="mt-3 space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
-            if (sortCodeValid && accountNumberValid) saveDetails.mutate();
+            if (sortCodeValid && accountNumberValid && revolutValid) saveDetails.mutate();
           }}
         >
           <label className="block text-xs text-neutral-600">
@@ -127,6 +131,20 @@ export function Settings() {
               onChange={(e) => setPaymentReference(e.target.value)}
               className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
             />
+          </label>
+          <label className="block text-xs text-neutral-600">
+            Revolut link (e.g. revolut.me/yourname)
+            <input
+              value={revolutLink}
+              onChange={(e) => setRevolutLink(e.target.value.trim())}
+              placeholder="revolut.me/yourname"
+              className={`mt-1 w-full rounded border px-3 py-2 text-sm ${
+                revolutValid ? 'border-neutral-300' : 'border-rose-400'
+              }`}
+            />
+            {!revolutValid && (
+              <span className="text-rose-700">Looks off — expected revolut.me/yourname</span>
+            )}
           </label>
           <button className="rounded bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white">
             Save details {saved === 'details' && '✓'}

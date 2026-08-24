@@ -42,6 +42,7 @@ def upsert_payout_details(
     sort_code: str | None,
     account_number: str | None,
     payment_reference: str | None,
+    revolut_link: str | None,
 ) -> PayoutDetails:
     principal.require_registered()
     row = session.get(PayoutDetails, principal.user.id)
@@ -52,6 +53,7 @@ def upsert_payout_details(
     row.sort_code = sort_code
     row.account_number = account_number
     row.payment_reference = payment_reference
+    row.revolut_link = revolut_link
     row.updated_at = datetime.now(timezone.utc)
     session.flush()
     return row
@@ -85,6 +87,7 @@ def game_payout_details(
             "sort_code": pd.sort_code,
             "account_number_masked": mask_account_number(pd.account_number),
             "payment_reference": pd.payment_reference,
+            "revolut_link": pd.revolut_link,
         }
         for pd, u in rows
     ]

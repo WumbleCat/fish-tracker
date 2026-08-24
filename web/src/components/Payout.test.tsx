@@ -16,6 +16,7 @@ const details: PayoutDetailsMasked = {
   sort_code: '040004',
   account_number_masked: '••••5678',
   payment_reference: null,
+  revolut_link: 'revolut.me/alice-h',
 };
 
 describe('PayoutBlock', () => {
@@ -24,6 +25,13 @@ describe('PayoutBlock', () => {
     expect(screen.getByText('••••5678')).toBeInTheDocument();
     expect(screen.queryByText(/^\d{8}$/)).toBeNull();
     expect(screen.getByLabelText('reveal account number')).toBeInTheDocument();
+  });
+
+  it('renders the Revolut link in full — a public handle needs no mask', () => {
+    render(<PayoutBlock details={details} isGbp />);
+    const link = screen.getByRole('link', { name: /revolut\.me\/alice-h/i });
+    expect(link).toHaveAttribute('href', 'https://revolut.me/alice-h');
+    expect(screen.getByLabelText('copy revolut link')).toBeInTheDocument();
   });
 
   it('shows the free-text reference instead of UK fields for non-GBP games', () => {

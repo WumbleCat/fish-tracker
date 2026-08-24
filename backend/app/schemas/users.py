@@ -24,6 +24,10 @@ class PayoutDetailsIn(BaseModel):
     sort_code: str | None = Field(default=None, pattern=r"^[0-9]{6}$")
     account_number: str | None = Field(default=None, pattern=r"^[0-9]{8}$")
     payment_reference: str | None = Field(default=None, min_length=1, max_length=200)
+    # A public, shareable payment link — format checked as a typo-catcher only.
+    revolut_link: str | None = Field(
+        default=None, pattern=r"^(https://)?revolut\.me/[A-Za-z0-9._-]{2,64}$"
+    )
 
 
 class PayoutDetailsMasked(BaseModel):
@@ -39,6 +43,8 @@ class PayoutDetailsMasked(BaseModel):
     sort_code: str | None
     account_number_masked: str | None
     payment_reference: str | None
+    # Not masked: a Revolut link is a public handle, unlike an account number.
+    revolut_link: str | None
 
 
 class PushTokenIn(BaseModel):

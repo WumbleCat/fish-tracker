@@ -100,7 +100,7 @@ class MemberRole(str, Enum):
 Tables:
 
 - **`users`** — `id`, `auth_user_id` (FK to `auth.users`, null for guests), `display_name`, `is_guest`, `default_currency`, `created_at`. Unique on `auth_user_id` where not null.
-- **`payout_details`** — `user_id` (PK, FK `users`), `account_name`, `sort_code`, `account_number`, `payment_reference`, `updated_at`. Separate table so it is never joined in by accident and can carry its own tight RLS. Guests may not have a row (`CHECK` against `users.is_guest` via trigger, or enforce in service + RLS).
+- **`payout_details`** — `user_id` (PK, FK `users`), `account_name`, `sort_code`, `account_number`, `payment_reference`, `revolut_link` (added 2026-08-24; public handle, unmasked, format-checked), `updated_at`. Separate table so it is never joined in by accident and can carry its own tight RLS. Guests may not have a row (`CHECK` against `users.is_guest` via trigger, or enforce in service + RLS).
 - **`games`** — `id`, `name`, `join_code` (unique, short, uppercase, ambiguity-free alphabet), `state`, `host_id`, `currency` (ISO 4217, default `GBP`), `currency_exponent`, `stake_minor`, `created_at`, `closed_at`, `version`.
 - **`game_members`** — `game_id`, `user_id`, `role`, `joined_at`, `departed_at`, `departed_unsettled`. Unique on `(game_id, user_id)`.
 - **`entries`** — `id`, `game_id`, `user_id`, `entry_type`, `amount_minor`, `state`, `created_at`, `logged_by`, `verified_by`, `verified_at`, `rejection_note`, `void_reason`, `amends_entry_id`, `version`.

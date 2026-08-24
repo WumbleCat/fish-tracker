@@ -5,7 +5,7 @@
 
 import * as Clipboard from 'expo-clipboard';
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Linking, Pressable, Text, View } from 'react-native';
 
 import { supabase } from '../lib/supabase';
 import type { PayoutDetailsMasked } from '../lib/types';
@@ -63,7 +63,12 @@ export function PayoutCard({
 }) {
   const [revealed, setRevealed] = useState<string | null>(null);
   const hasBankFields = isGbp && (details.sort_code || details.account_number_masked);
-  if (!hasBankFields && !details.payment_reference) return null;
+  const revolutHref = details.revolut_link
+    ? details.revolut_link.startsWith('https://')
+      ? details.revolut_link
+      : `https://${details.revolut_link}`
+    : null;
+  if (!hasBankFields && !details.payment_reference && !revolutHref) return null;
 
   return (
     <View
@@ -127,6 +132,34 @@ export function PayoutCard({
             copyValue={async () => details.payment_reference}
           />
         )
+      )}
+      {revolutHref && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 44, gap: 8 }}>
+          <Text style={{ color: '#9fb0a8', width: 110 }}>Revolut</Text>
+          <Pressable
+            testID="revolut-link"
+            accessibilityRole="link"
+            onPress={() => void Linking.openURL(revolutHref)}
+            style={{ minHeight: 44, justifyContent: 'center', flexShrink: 1 }}
+          >
+            <Text
+              numberOfLines={1}
+              style={{ color: '#34d399', textDecorationLine: 'underline' }}
+            >
+              {revolutHref.replace('https://', '')}
+            </Text>
+          </Pressable>
+          <View style={{ flex: 1 }} />
+          <Pressable
+            accessibilityLabel="copy revolut link"
+            onPress={async () => {
+              await Clipboard.setStringAsync(revolutHref);
+            }}
+            style={{ minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Text style={{ color: '#9fb0a8' }}>copy</Text>
+          </Pressable>
+        </View>
       )}
     </View>
   );

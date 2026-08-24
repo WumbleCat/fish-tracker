@@ -46,6 +46,7 @@ const hostDetails: PayoutDetailsMasked = {
   sort_code: '040004',
   account_number_masked: '••••5678',
   payment_reference: null,
+  revolut_link: 'revolut.me/alice-h',
 };
 
 describe('guest view', () => {
@@ -57,6 +58,14 @@ describe('guest view', () => {
     expect(screen.queryByTestId('close-game')).toBeNull();
     // absence, not an apology: no "guests can't…" copy anywhere
     expect(screen.queryByText(/guest/i)).toBeNull();
+  });
+
+  it('renders the Revolut link in full — a public handle, no mask', async () => {
+    await render(
+      <SettleView game={game} settlement={balanced} payoutDetails={[hostDetails]} isHost={false} />,
+    );
+    expect(screen.getAllByText('revolut.me/alice-h').length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText('copy revolut link').length).toBeGreaterThan(0);
   });
 
   it('renders masked payout details for registered co-players', async () => {
