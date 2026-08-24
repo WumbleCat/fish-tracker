@@ -1,31 +1,71 @@
-/** The front door: join by code, big enough to use while someone reads six
- * characters aloud across a room. Sign-in is secondary. */
+/** The front door, dealt on the felt: six chip tiles for the code, a name,
+ * "Deal me in" — big enough to use while someone reads six characters
+ * aloud across a room. Sign-in is the small line underneath. A join link
+ * arrives here with the code already in the tiles. */
 
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, TextInput, View } from 'react-native';
 import { Text } from '../components/Text';
 
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
 
+const CODE_LENGTH = 6;
+const normalize = (raw: string) =>
+  raw
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, CODE_LENGTH);
+
+export function joinErrorMessage(e: unknown): string {
+  if (e instanceof ApiError) {
+    switch (e.code) {
+      case 'game_not_found':
+        return 'No game with that code — check it with your host.';
+      case 'game_not_joinable':
+        return "That game isn't taking players right now.";
+      case 'table_full':
+        return 'That table is full — nine seats, all taken.';
+    }
+  }
+  return "Couldn't join — check your connection and try again.";
+}
+
 export default function Landing() {
   const { status, guest, startGuest } = useAuth();
-  const [code, setCode] = useState('');
+  const params = useLocalSearchParams<{ code?: string }>();
+  const [code, setCode] = useState(() => normalize(params.code ?? ''));
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const codeInput = useRef<TextInput>(null);
 
   useEffect(() => {
-    if (status === 'registered') router.replace('/sessions');
-    else if (status === 'guest' && guest) router.replace(`/game/${guest.gameId}`);
+    if (status === 'registered') {
+      // a signed-in player opening a join link is seated straight away
+      if (code.length === CODE_LENGTH) {
+        api
+          .joinGame(code)
+          .then((game) => router.replace(`/game/${game.id}`))
+          .catch((e) => setError(joinErrorMessage(e)));
+      } else {
+        router.replace('/sessions');
+      }
+    } else if (status === 'guest' && guest) {
+      router.replace(`/game/${guest.gameId}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, guest]);
 
+  const ready = code.length === CODE_LENGTH && name.trim().length > 0;
+
   const join = async () => {
+    if (!ready || busy) return;
     setError(null);
     setBusy(true);
     try {
-      const result = await api.guestJoin(code.toUpperCase(), name.trim());
+      const result = await api.guestJoin(code, name.trim());
       await startGuest({
         token: result.token,
         gameId: result.game_id,
@@ -35,76 +75,105 @@ export default function Landing() {
       });
       router.replace(`/game/${result.game_id}`);
     } catch (e) {
-      setError(
-        e instanceof ApiError && e.code === 'game_not_found'
-          ? 'No game with that code — check it with your host.'
-          : e instanceof ApiError && e.code === 'game_not_joinable'
-            ? "That game isn't taking players right now."
-            : "Couldn't join — check your connection and try again.",
-      );
+      setError(joinErrorMessage(e));
     } finally {
       setBusy(false);
     }
   };
 
+  const cells = Array.from({ length: CODE_LENGTH }, (_, i) => code[i] ?? '');
+  const activeIndex = Math.min(code.length, CODE_LENGTH - 1);
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={{ flex: 1, justifyContent: 'center', padding: 24, gap: 16 }}
+      style={{ flex: 1, justifyContent: 'center', padding: 26, gap: 20 }}
     >
-      <Text style={{ color: '#e7ece9', fontSize: 32, fontWeight: '800' }}>🐟 fish-tracker</Text>
-      <Text style={{ color: '#9fb0a8', fontSize: 16 }}>
-        Joining a game? Type the code your host reads out.
-      </Text>
+      <Text style={{ color: '#e7ece9', fontSize: 26, fontWeight: '700' }}>Sit down</Text>
+
+      <Pressable
+        onPress={() => codeInput.current?.focus()}
+        accessibilityLabel="join code"
+        style={{ flexDirection: 'row', gap: 7 }}
+      >
+        {cells.map((char, i) => {
+          const filled = char !== '';
+          const active = !filled && i === activeIndex;
+          return (
+            <View
+              key={i}
+              style={{
+                flex: 1,
+                aspectRatio: 1,
+                borderRadius: 99,
+                backgroundColor: filled ? '#0f2a1f' : 'rgba(255,255,255,.04)',
+                borderWidth: 2,
+                borderColor: filled || active ? '#34d399' : '#24332c',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ color: '#e7ece9', fontSize: 19, fontVariant: ['tabular-nums'] }}>
+                {char}
+              </Text>
+            </View>
+          );
+        })}
+      </Pressable>
       <TextInput
+        ref={codeInput}
         value={code}
-        onChangeText={(t) => setCode(t.toUpperCase())}
-        placeholder="GAME CODE"
-        placeholderTextColor="#5d6f66"
+        onChangeText={(t) => setCode(normalize(t))}
+        autoFocus={!params.code}
         autoCapitalize="characters"
-        maxLength={6}
-        style={{
-          backgroundColor: '#1a2620',
-          color: '#e7ece9',
-          fontSize: 28,
-          letterSpacing: 8,
-          textAlign: 'center',
-          borderRadius: 14,
-          padding: 16,
-          fontVariant: ['tabular-nums'],
-        }}
+        autoCorrect={false}
+        maxLength={CODE_LENGTH}
+        accessibilityLabel="join code input"
+        style={{ position: 'absolute', opacity: 0, width: 1, height: 1 }}
       />
+
       <TextInput
         value={name}
         onChangeText={setName}
-        placeholder="Your name at the table"
+        placeholder="Name at the table"
         placeholderTextColor="#5d6f66"
         maxLength={60}
+        autoFocus={!!params.code}
         style={{
-          backgroundColor: '#1a2620',
+          backgroundColor: 'rgba(255,255,255,.05)',
+          borderWidth: 1,
+          borderColor: '#24332c',
           color: '#e7ece9',
-          fontSize: 18,
-          borderRadius: 14,
-          padding: 16,
+          fontSize: 16,
+          borderRadius: 99,
+          paddingVertical: 15,
+          paddingHorizontal: 20,
         }}
       />
       {error && <Text style={{ color: '#fb7185' }}>{error}</Text>}
       <Pressable
-        disabled={busy || code.length < 6 || !name.trim()}
+        disabled={!ready || busy}
         onPress={join}
+        accessibilityRole="button"
         style={{
-          height: 64,
-          borderRadius: 14,
-          backgroundColor: busy || code.length < 6 || !name.trim() ? '#24332c' : '#059669',
+          height: 62,
+          borderRadius: 99,
+          backgroundColor: ready && !busy ? '#34d399' : '#24332c',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800' }}>Join the game</Text>
+        <Text style={{ color: ready ? '#06231a' : '#9fb0a8', fontSize: 17, fontWeight: '800' }}>
+          Deal me in
+        </Text>
       </Pressable>
-      <Pressable onPress={() => router.push('/signin')} style={{ minHeight: 44, justifyContent: 'center' }}>
-        <Text style={{ color: '#9fb0a8', textAlign: 'center', textDecorationLine: 'underline' }}>
-          Have an account? Sign in
+      <Pressable
+        onPress={() => router.push('/signin')}
+        style={{ minHeight: 44, justifyContent: 'center' }}
+      >
+        <Text style={{ color: '#5d6f66', textAlign: 'center', fontSize: 13.5 }}>
+          Host?{' '}
+          <Text style={{ color: '#34d399', textDecorationLine: 'underline' }}>Sign in</Text>
         </Text>
       </Pressable>
     </KeyboardAvoidingView>

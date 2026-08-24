@@ -134,7 +134,9 @@ class Settings(BaseSettings):
         "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8081,"
         "https://fish-tracker-app.vercel.app"
     )
-    guest_token_ttl_hours: int = 48
+    # A week: the game is weekly, and a guest who comes back for the next
+    # one should still be who they were. Clients refresh on every visit.
+    guest_token_ttl_hours: int = 168
     # which env var the connection string came from — diagnostic only
     database_url_source: str = "DATABASE_URL/default"
 

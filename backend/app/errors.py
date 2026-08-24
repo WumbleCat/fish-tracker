@@ -65,3 +65,8 @@ def currency_locked() -> AppError:
 
 def game_closed() -> AppError:
     return AppError("game_closed", 409)
+
+
+def table_full(seats: int) -> AppError:
+    # Normal condition — the room is full, not a fault.
+    return AppError("table_full", 409, {"seats": seats})

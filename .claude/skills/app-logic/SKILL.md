@@ -185,6 +185,10 @@ Joining uses a short human-readable code or a link — people are in a room toge
 
 A player joining mid-game is normal, not an edge case. They join at `running`, and their first buy-in behaves like any other.
 
+**A table seats at most nine** (decided 2026-08-24) — the host included, since the host plays. A join that would make a tenth active member is refused with `table_full`; it is a normal condition, phrased as "that table is full", never a fault. A player who has left (`departed_at` set) no longer occupies a seat, so a seat frees when someone leaves and is taken again if they rejoin. The count is of people at the table, not of entries — a departed-unsettled player still holds no seat, though their unresolved entries still block close.
+
+**A join link** carries the code: `/join/<CODE>` on the web pre-fills the code so a guest only types a name, and signs a registered user straight in to the game; the phone app accepts the same code through its own link. The link is the code in another form — it grants nothing the code doesn't, and expires with the game's joinable states exactly as the code does.
+
 A player may leave a game only when their position is settled: all entries resolved, cash-out verified. A player with pending entries who leaves stays on the roster as `departed_unsettled` and blocks close until resolved.
 
 Host transfer must exist. Hosts go to the shop, or bust out and lose interest, and a game that can't be closed because one person left is a real failure. Any current **registered** player can be made host by the current host. Guests are never eligible. A majority-claim path for when the host is absent was considered and **deferred** (decided 2026-08-23) — v1 ships host-initiated transfer only; if an absent host strands a game, that is raised as product feedback rather than solved with an invented mechanism.

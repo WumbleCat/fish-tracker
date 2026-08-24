@@ -77,8 +77,9 @@ The host is playing too. Verification has to fit between hands.
 
 ## Auth and guest join
 
-- **Join by code is the front door.** The unauthenticated landing screen leads with a code field and a display-name field, big enough to use while someone reads six characters aloud across a room. Sign-in is secondary on that screen.
-- Support a **join link and QR** so the host can show a phone rather than shout a code.
+- **Join by code is the front door** — the "Deal me in" direction (decided 2026-08-24): "Sit down", six round chip tiles for the code (a hidden `TextInput` behind them; tap the row to focus), a pill name field, a mint pill "Deal me in", and "Host? Sign in" as the small line underneath. Big enough to use while someone reads six characters aloud across a room.
+- **Join link**: `app/join/[code]` (scheme `mobile://join/CODE`, or the web link via app links) lands on the front door with the tiles filled; a signed-in player opening it is seated straight away. A QR remains a good next step so the host can show a phone rather than shout a code.
+- A full table (nine seats, host included) is refused as "That table is full — nine seats, all taken." — a normal condition, not an error state.
 - **Sign in / sign up** via Supabase Auth: email + password and magic link. Magic link is the better default on a phone.
 - **Guest state is a quiet marker**, not a nag: a small "playing as guest" chip with one "save my history" action. Never interrupt logging with a sign-up prompt — a blocked entry is a hole in the ledger.
 - **Guest limits show as absence.** No host controls, no payout fields, no lifetime tab. Don't render disabled controls with explanatory tooltips.

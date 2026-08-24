@@ -7,6 +7,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { prefetchGame, useMe, useGames } from '../lib/queries';
 import { useShortcuts } from '../lib/shortcuts';
+import { joinErrorMessage } from './Landing';
 
 const STATE_LABELS: Record<string, string> = {
   draft: 'draft',
@@ -32,6 +33,18 @@ export function Sessions() {
   const createMutation = useMutation({
     mutationFn: () =>
       api.createGame({ name, currency: me?.default_currency ?? 'GBP' }),
+    onSuccess: (game) => {
+      void queryClient.invalidateQueries({ queryKey: ['games'] });
+      navigate(`/session/${game.id}`);
+    },
+  });
+  // First game: name it and open the table in one go — the code is what
+  // the host needs next, and it's on the session screen.
+  const openTable = useMutation({
+    mutationFn: async () => {
+      const game = await api.createGame({ name, currency: me?.default_currency ?? 'GBP' });
+      return api.changeState(game.id, 'open', game.version);
+    },
     onSuccess: (game) => {
       void queryClient.invalidateQueries({ queryKey: ['games'] });
       navigate(`/session/${game.id}`);
@@ -79,9 +92,53 @@ export function Sessions() {
       </div>
 
       {games && games.length === 0 && (
-        <p className="rounded border border-dashed border-neutral-300 p-8 text-center text-neutral-500">
-          No sessions yet — start one and read the join code out at the table.
-        </p>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (name.trim() && !openTable.isPending) openTable.mutate();
+          }}
+          aria-label="host your first game"
+          className="mx-auto max-w-sm rounded-2xl border border-felt-700 bg-felt-950 p-5 text-felt-100"
+        >
+          <p className="mb-3 font-mono text-[10px] font-semibold tracking-[0.12em] text-felt-600">
+            HOST, FIRST GAME
+          </p>
+          <div className="flex flex-col gap-2.5 text-sm">
+            <label className="flex items-center justify-between gap-3 text-felt-300">
+              Name
+              <input
+                autoFocus
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Friday at mine"
+                className="w-44 rounded-lg border border-felt-700 bg-white/5 px-3 py-1.5 text-right text-felt-100 placeholder:text-felt-600 focus:border-emerald-400 focus:outline-none"
+                aria-label="game name"
+              />
+            </label>
+            <div className="flex justify-between text-felt-300">
+              <span>Currency</span>
+              <span className="num text-felt-100">{me?.default_currency ?? 'GBP'}</span>
+            </div>
+            <div className="flex justify-between text-felt-300">
+              <span>Seats</span>
+              <span className="num text-felt-100">9</span>
+            </div>
+          </div>
+          {openTable.isError && (
+            <p role="alert" className="mt-3 text-xs text-rose-400">
+              Couldn't open the table — try again.
+            </p>
+          )}
+          <button
+            type="submit"
+            className="mt-4 h-12 w-full rounded-full bg-emerald-600 text-[15px] font-bold text-white hover:brightness-105"
+          >
+            Open the table
+          </button>
+          <p className="mt-3 text-xs text-felt-600">
+            Players are seated as they join. Nothing else to set up.
+          </p>
+        </form>
       )}
 
       {filtered.length > 0 && (
@@ -179,7 +236,7 @@ export function Sessions() {
               />
               {joinMutation.isError && (
                 <p role="alert" className="text-sm text-rose-700">
-                  Couldn't join with that code.
+                  {joinErrorMessage(joinMutation.error)}
                 </p>
               )}
               <button

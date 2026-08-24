@@ -21,9 +21,16 @@
     'Apercu', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-weight-normal: 500;
 
+  /* The felt: the front door and empty table are always dark, in both
+     themes — it's the identity, not a surface. Mirrors mobile's palette. */
   --color-felt-50: #f4f7f4;
+  --color-felt-100: #e7ece9;
+  --color-felt-300: #9fb0a8;
+  --color-felt-600: #5d6f66;
+  --color-felt-700: #24332c;
   --color-felt-800: #1d2a22;
   --color-felt-900: #15201a;
+  --color-felt-950: #0b1210;
 }
 
 :root {

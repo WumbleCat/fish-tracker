@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.errors import AppError, guest_not_permitted, not_found
 from app.models import Game, GameMember, GameState, MemberRole, User
+from app.services.seats import require_seat
 
 logger = logging.getLogger(__name__)
 
@@ -163,6 +164,7 @@ def guest_join(
         # guest tokens are HS256; without the real secret they'd be both
         # forgeable and refused by Supabase RLS/Realtime
         raise AppError("guest_unavailable", 503)
+    require_seat(session, game.id)
 
     user = User(display_name=display_name, is_guest=True)
     session.add(user)
