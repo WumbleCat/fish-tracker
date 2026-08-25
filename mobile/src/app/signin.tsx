@@ -1,8 +1,14 @@
+/** The host's door. Flat felt rather than the front door's lamp — the glow
+ * belongs to "Sit down"; this is the quieter card behind it. Sizes come from
+ * `lib/layout` so the fields and the button hold up on any handset. */
+
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, TextInput } from 'react-native';
-import { Text } from '../components/Text';
+import { Pressable, TextInput, useWindowDimensions } from 'react-native';
 
+import { FeltScreen } from '../components/FeltScreen';
+import { Text } from '../components/Text';
+import { frontDoorMetrics } from '../lib/layout';
 import { supabase } from '../lib/supabase';
 
 export default function SignIn() {
@@ -12,6 +18,8 @@ export default function SignIn() {
   const [displayName, setDisplayName] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { width, height } = useWindowDimensions();
+  const m = frontDoorMetrics(width, height);
 
   // Confirmation links open in a mail app, so they land on the web app —
   // sign in here afterwards.
@@ -50,17 +58,20 @@ export default function SignIn() {
   const field = {
     backgroundColor: '#1a2620',
     color: '#e7ece9',
-    fontSize: 16,
+    fontSize: m.fieldFont,
     borderRadius: 12,
-    padding: 14,
+    padding: m.fieldPadding,
   } as const;
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={{ flex: 1, justifyContent: 'center', padding: 24, gap: 12 }}
-    >
-      <Text style={{ color: '#e7ece9', fontSize: 24, fontWeight: '800' }}>
+    <FeltScreen glow={false}>
+      <Text
+        style={{
+          color: '#e7ece9',
+          fontSize: Math.round(m.titleFont * 0.92),
+          fontWeight: '800',
+        }}
+      >
         {mode === 'signin' ? 'Sign in' : 'Create an account'}
       </Text>
       {mode === 'signup' && (
@@ -78,7 +89,9 @@ export default function SignIn() {
         placeholder="Email"
         placeholderTextColor="#5d6f66"
         autoCapitalize="none"
+        autoCorrect={false}
         keyboardType="email-address"
+        textContentType="emailAddress"
         style={field}
       />
       <TextInput
@@ -87,35 +100,44 @@ export default function SignIn() {
         placeholder="Password"
         placeholderTextColor="#5d6f66"
         secureTextEntry
+        returnKeyType="go"
+        onSubmitEditing={submit}
         style={field}
       />
-      {error && <Text style={{ color: '#fb7185' }}>{error}</Text>}
-      {message && <Text style={{ color: '#34d399' }}>{message}</Text>}
+      {error && <Text style={{ color: '#fb7185', fontSize: m.fieldFont }}>{error}</Text>}
+      {message && <Text style={{ color: '#34d399', fontSize: m.fieldFont }}>{message}</Text>}
       <Pressable
         onPress={submit}
+        accessibilityRole="button"
         style={{
-          height: 56,
+          height: m.buttonHeight,
           borderRadius: 12,
           backgroundColor: '#059669',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>
+        <Text style={{ color: '#fff', fontSize: m.buttonFont, fontWeight: '700' }}>
           {mode === 'signin' ? 'Sign in' : 'Sign up'}
         </Text>
       </Pressable>
-      <Pressable onPress={magicLink} disabled={!email} style={{ minHeight: 44, justifyContent: 'center' }}>
-        <Text style={{ color: '#34d399', textAlign: 'center' }}>Email me a magic link instead</Text>
+      <Pressable
+        onPress={magicLink}
+        disabled={!email}
+        style={{ minHeight: 44, justifyContent: 'center' }}
+      >
+        <Text style={{ color: '#34d399', textAlign: 'center', fontSize: m.fieldFont }}>
+          Email me a magic link instead
+        </Text>
       </Pressable>
       <Pressable
         onPress={() => setMode(mode === 'signin' ? 'signup' : 'signin')}
         style={{ minHeight: 44, justifyContent: 'center' }}
       >
-        <Text style={{ color: '#9fb0a8', textAlign: 'center' }}>
+        <Text style={{ color: '#9fb0a8', textAlign: 'center', fontSize: m.fieldFont }}>
           {mode === 'signin' ? 'Need an account? Sign up' : 'Have an account? Sign in'}
         </Text>
       </Pressable>
-    </KeyboardAvoidingView>
+    </FeltScreen>
   );
 }
