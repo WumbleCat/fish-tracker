@@ -1,17 +1,21 @@
 /** The front door, dealt on the felt: six chip tiles for the code, a name,
  * "Deal me in" — big enough to use while someone reads six characters
  * aloud across a room. Sign-in is the small line underneath. A join link
- * arrives here with the code already in the tiles. */
+ * arrives here with the code already in the tiles.
+ *
+ * Every size comes from `lib/layout` rather than a constant, so the same
+ * screen holds together from a 320pt SE to an unfolded Fold. */
 
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, TextInput, View } from 'react-native';
-import { Text } from '../components/Text';
+import { Pressable, TextInput, useWindowDimensions, View } from 'react-native';
 
+import { FeltScreen } from '../components/FeltScreen';
+import { Text } from '../components/Text';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { CODE_LENGTH, codeRowWidth, frontDoorMetrics } from '../lib/layout';
 
-const CODE_LENGTH = 6;
 const normalize = (raw: string) =>
   raw
     .toUpperCase()
@@ -40,6 +44,8 @@ export default function Landing() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const codeInput = useRef<TextInput>(null);
+  const { width, height } = useWindowDimensions();
+  const m = frontDoorMetrics(width, height);
 
   useEffect(() => {
     if (status === 'registered') {
@@ -85,16 +91,20 @@ export default function Landing() {
   const activeIndex = Math.min(code.length, CODE_LENGTH - 1);
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={{ flex: 1, justifyContent: 'center', padding: 26, gap: 20 }}
-    >
-      <Text style={{ color: '#e7ece9', fontSize: 26, fontWeight: '700' }}>Sit down</Text>
+    <FeltScreen>
+      <Text style={{ color: '#e7ece9', fontSize: m.titleFont, fontWeight: '700' }}>Sit down</Text>
 
       <Pressable
         onPress={() => codeInput.current?.focus()}
         accessibilityLabel="join code"
-        style={{ flexDirection: 'row', gap: 7 }}
+        // the row is centred rather than stretched: past the tile cap the
+        // slack becomes margin, so chips stay chip-sized on a big screen
+        style={{
+          flexDirection: 'row',
+          gap: m.tileGap,
+          width: codeRowWidth(m),
+          alignSelf: 'center',
+        }}
       >
         {cells.map((char, i) => {
           const filled = char !== '';
@@ -103,9 +113,9 @@ export default function Landing() {
             <View
               key={i}
               style={{
-                flex: 1,
-                aspectRatio: 1,
-                borderRadius: 99,
+                width: m.tile,
+                height: m.tile,
+                borderRadius: m.tile / 2,
                 backgroundColor: filled ? '#0f2a1f' : 'rgba(255,255,255,.04)',
                 borderWidth: 2,
                 borderColor: filled || active ? '#34d399' : '#24332c',
@@ -113,7 +123,13 @@ export default function Landing() {
                 justifyContent: 'center',
               }}
             >
-              <Text style={{ color: '#e7ece9', fontSize: 19, fontVariant: ['tabular-nums'] }}>
+              <Text
+                style={{
+                  color: '#e7ece9',
+                  fontSize: m.codeFont,
+                  fontVariant: ['tabular-nums'],
+                }}
+              >
                 {char}
               </Text>
             </View>
@@ -139,31 +155,35 @@ export default function Landing() {
         placeholderTextColor="#5d6f66"
         maxLength={60}
         autoFocus={!!params.code}
+        returnKeyType="go"
+        onSubmitEditing={join}
         style={{
           backgroundColor: 'rgba(255,255,255,.05)',
           borderWidth: 1,
           borderColor: '#24332c',
           color: '#e7ece9',
-          fontSize: 16,
+          fontSize: m.fieldFont,
           borderRadius: 99,
-          paddingVertical: 15,
-          paddingHorizontal: 20,
+          paddingVertical: m.fieldPadding,
+          paddingHorizontal: m.fieldPadding + 5,
         }}
       />
-      {error && <Text style={{ color: '#fb7185' }}>{error}</Text>}
+      {error && <Text style={{ color: '#fb7185', fontSize: m.fieldFont }}>{error}</Text>}
       <Pressable
         disabled={!ready || busy}
         onPress={join}
         accessibilityRole="button"
         style={{
-          height: 62,
+          height: m.buttonHeight,
           borderRadius: 99,
           backgroundColor: ready && !busy ? '#34d399' : '#24332c',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Text style={{ color: ready ? '#06231a' : '#9fb0a8', fontSize: 17, fontWeight: '800' }}>
+        <Text
+          style={{ color: ready ? '#06231a' : '#9fb0a8', fontSize: m.buttonFont, fontWeight: '800' }}
+        >
           Deal me in
         </Text>
       </Pressable>
@@ -171,11 +191,11 @@ export default function Landing() {
         onPress={() => router.push('/signin')}
         style={{ minHeight: 44, justifyContent: 'center' }}
       >
-        <Text style={{ color: '#5d6f66', textAlign: 'center', fontSize: 13.5 }}>
+        <Text style={{ color: '#5d6f66', textAlign: 'center', fontSize: m.fieldFont - 2 }}>
           Host?{' '}
           <Text style={{ color: '#34d399', textDecorationLine: 'underline' }}>Sign in</Text>
         </Text>
       </Pressable>
-    </KeyboardAvoidingView>
+    </FeltScreen>
   );
 }
