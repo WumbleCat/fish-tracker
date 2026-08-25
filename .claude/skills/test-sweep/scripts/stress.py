@@ -27,6 +27,14 @@ import httpx
 import jwt
 from sqlalchemy import create_engine, text
 
+# A Windows console still defaults to a legacy code page — cp932 on the
+# machine this was first run on — which cannot encode the em dashes and
+# currency symbols the ledger is printed with. Force UTF-8 on our own streams
+# rather than reducing the report to ASCII.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+
 LOOPBACK = {"127.0.0.1", "localhost", "::1", "[::1]"}
 DEFAULT_DB = "postgresql+psycopg://postgres:postgres@127.0.0.1:54322/postgres"
 DEFAULT_SECRET = "super-secret-jwt-token-with-at-least-32-characters-long"
