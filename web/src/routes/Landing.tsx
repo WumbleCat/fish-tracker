@@ -30,8 +30,10 @@ export function joinErrorMessage(e: unknown): string {
 
 const field =
   'w-full rounded-full border border-felt-700 bg-white/5 px-6 py-4 text-[17px] text-felt-100 placeholder:text-felt-600 focus:border-emerald-400 focus:outline-none';
+// text-base below sm: is not a style choice — iOS Safari zooms the page in
+// on any focused input under 16px, and the zoom does not undo on blur.
 const cardField =
-  'w-full rounded-xl border border-felt-700 bg-white/5 px-4 py-3 text-sm text-felt-100 placeholder:text-felt-600 focus:border-emerald-400 focus:outline-none';
+  'w-full rounded-xl border border-felt-700 bg-white/5 px-4 py-3 text-base text-felt-100 placeholder:text-felt-600 focus:border-emerald-400 focus:outline-none sm:text-sm';
 
 export function Landing({ initialCode = '' }: { initialCode?: string }) {
   const navigate = useNavigate();
@@ -116,15 +118,21 @@ export function Landing({ initialCode = '' }: { initialCode?: string }) {
 
   return (
     <div
-      className="mx-auto mt-4 max-w-6xl rounded-3xl bg-felt-950 px-16 py-[72px] text-felt-100"
+      className="mx-auto mt-4 max-w-6xl rounded-2xl bg-felt-950 px-5 py-10 text-felt-100 sm:rounded-3xl sm:px-10 sm:py-14 lg:px-16 lg:py-[72px]"
       style={{
         background: 'radial-gradient(80% 120% at 15% 0%, #183025 0%, #0d1512 55%, #0b1210 100%)',
       }}
     >
-      <div className="flex items-center gap-14">
-        <form onSubmit={handleGuestJoin} className="flex flex-1 flex-col gap-6" aria-label="join a game">
-          <div className="flex items-baseline gap-3">
-            <h1 className="text-[34px] font-bold tracking-tight">Sit down</h1>
+      {/* Two columns side by side is a desktop shape: below lg the sign-in
+          card sits under the join form rather than being squeezed. */}
+      <div className="flex flex-col gap-10 lg:flex-row lg:items-center lg:gap-14">
+        <form
+          onSubmit={handleGuestJoin}
+          className="flex min-w-0 flex-1 flex-col gap-6"
+          aria-label="join a game"
+        >
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h1 className="text-[28px] font-bold tracking-tight sm:text-[34px]">Sit down</h1>
             <span className="num text-[13px] tracking-[0.1em] text-emerald-400">
               {CODE_LENGTH} CHARACTERS
             </span>
@@ -145,7 +153,7 @@ export function Landing({ initialCode = '' }: { initialCode?: string }) {
               {joinError}
             </p>
           )}
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
             <button
               type="submit"
               className={`rounded-full px-10 py-4 text-[17px] font-extrabold transition ${
@@ -168,7 +176,7 @@ export function Landing({ initialCode = '' }: { initialCode?: string }) {
           </div>
         </form>
 
-        <div className="flex w-[300px] flex-col gap-3.5">
+        <div className="flex w-full flex-col gap-3.5 lg:w-[300px] lg:shrink-0">
           <form
             onSubmit={handleAuth}
             className="rounded-2xl border border-felt-700 bg-white/[0.03] p-5"

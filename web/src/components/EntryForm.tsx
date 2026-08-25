@@ -71,7 +71,7 @@ export function EntryForm({
       onKeyDown={(e) => {
         if (e.key === 'Escape') onCancel?.();
       }}
-      className="flex items-end gap-2"
+      className="flex flex-wrap items-end gap-2"
       aria-label="log entry"
     >
       {canPickPlayer && (
@@ -82,7 +82,7 @@ export function EntryForm({
             autoFocus
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
-            className="mt-1 rounded border border-neutral-300 bg-white px-2 py-1.5 text-sm text-neutral-900"
+            className="mt-1 rounded border border-neutral-300 bg-white px-2 py-1.5 text-base text-neutral-900 sm:text-sm"
           >
             {active.map((m) => (
               <option key={m.user_id} value={m.user_id}>
@@ -97,7 +97,7 @@ export function EntryForm({
         <select
           value={entryType}
           onChange={(e) => setEntryType(e.target.value as EntryType)}
-          className="mt-1 rounded border border-neutral-300 bg-white px-2 py-1.5 text-sm text-neutral-900"
+          className="mt-1 rounded border border-neutral-300 bg-white px-2 py-1.5 text-base text-neutral-900 sm:text-sm"
         >
           {allowedTypes.map((t) => (
             <option key={t} value={t}>
@@ -115,7 +115,7 @@ export function EntryForm({
           onChange={(e) => setAmount(e.target.value)}
           inputMode="decimal"
           placeholder={exponent > 0 ? `0.${'0'.repeat(exponent)}` : '0'}
-          className="num mt-1 w-28 rounded border border-neutral-300 bg-white px-2 py-1.5 text-right text-sm"
+          className="num mt-1 w-28 rounded border border-neutral-300 bg-white px-2 py-1.5 text-right text-base sm:text-sm"
           aria-label="amount"
         />
       </label>

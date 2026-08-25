@@ -29,13 +29,15 @@ const STATE_STYLES: Record<string, string> = {
 function TableRow({ g }: { g: GameHistory }) {
   return (
     <details className="group border-b border-neutral-100">
-      <summary className="grid cursor-pointer grid-cols-[1fr_auto_auto_auto_auto_auto] items-center gap-4 py-2 text-sm hover:bg-neutral-100/60">
-        <span>
+      <summary className="grid cursor-pointer grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] items-center gap-2 py-2 text-sm hover:bg-neutral-100/60 sm:gap-4">
+        <span className="min-w-0 truncate">
           <span className="font-medium">{g.name}</span>
           {g.hosted && <span className="ml-1 text-xs text-emerald-700">hosted</span>}
           <span className="ml-2 text-xs text-neutral-400">{g.state}</span>
         </span>
-        <span className="num text-neutral-500">{format(new Date(g.created_at), 'd MMM yyyy')}</span>
+        <span className="num whitespace-nowrap text-neutral-500">
+          {format(new Date(g.created_at), 'd MMM yyyy')}
+        </span>
         <span className="num w-20 text-right">
           <Amount minor={g.buy_ins_minor} currency={g.currency} exponent={g.currency_exponent} />
         </span>
@@ -107,7 +109,9 @@ export function Profile() {
         return (
           <section key={c.currency} className="mt-6 rounded border border-neutral-200 bg-white p-4">
             <h2 className="text-sm font-semibold">{c.currency}</h2>
-            <dl className="mt-2 grid grid-cols-4 gap-4 text-sm">
+            {/* four stat tiles across 320px is 60px each — two rows of two
+                until there is width for one row of four */}
+            <dl className="mt-2 grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
               <div>
                 <dt className="text-xs text-neutral-500">Sessions</dt>
                 <dd className="num text-lg">{c.games_played}</dd>
@@ -168,11 +172,13 @@ export function Profile() {
           </h2>
           <ul className="divide-y divide-neutral-100 rounded border border-neutral-200 bg-white px-3 text-sm">
             {hosted.map((g) => (
-              <li key={g.game_id} className="flex items-center gap-4 py-2">
-                <span className="font-medium">{g.name}</span>
-                <span className="num text-neutral-500">{format(new Date(g.created_at), 'EEE d MMM yyyy')}</span>
+              <li key={g.game_id} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2">
+                <span className="min-w-0 truncate font-medium">{g.name}</span>
+                <span className="num whitespace-nowrap text-neutral-500">
+                  {format(new Date(g.created_at), 'EEE d MMM yyyy')}
+                </span>
                 <span className="text-xs text-neutral-400">{g.state}</span>
-                <span className="num ml-auto">
+                <span className="num ml-auto shrink-0">
                   <Amount minor={g.net_minor} currency={g.currency} exponent={g.currency_exponent} signed />
                 </span>
               </li>
@@ -186,18 +192,23 @@ export function Profile() {
           <h2 className="mb-1 text-xs font-medium uppercase tracking-wide text-neutral-500">
             Every table — your buy-ins and cash-outs
           </h2>
-          <div className="rounded border border-neutral-200 bg-white px-3">
-            <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 border-b border-neutral-300 py-1.5 text-xs uppercase tracking-wide text-neutral-500">
-              <span>Table</span>
-              <span>Date</span>
-              <span className="w-20 text-right">Buy-ins</span>
-              <span className="w-20 text-right">Cash-outs</span>
-              <span className="w-20 text-right">Net</span>
-              <span />
+          {/* Same treatment as the ledger tables: every column survives, the
+              row scrolls inside its own box. The inner min-width is what
+              stops the six-column grid from collapsing its own columns. */}
+          <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+            <div className="min-w-[40rem] rounded border border-neutral-200 bg-white px-3">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] gap-2 border-b border-neutral-300 py-1.5 text-xs uppercase tracking-wide text-neutral-500 sm:gap-4">
+                <span>Table</span>
+                <span>Date</span>
+                <span className="w-20 text-right">Buy-ins</span>
+                <span className="w-20 text-right">Cash-outs</span>
+                <span className="w-20 text-right">Net</span>
+                <span />
+              </div>
+              {games.map((g) => (
+                <TableRow key={g.game_id} g={g} />
+              ))}
             </div>
-            {games.map((g) => (
-              <TableRow key={g.game_id} g={g} />
-            ))}
           </div>
         </section>
       )}

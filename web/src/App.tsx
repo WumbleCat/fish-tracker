@@ -34,12 +34,15 @@ function Header() {
   if (status === 'signedOut' || status === 'loading') return null;
 
   return (
-    <header className="mb-6 flex items-center gap-4 border-b border-neutral-200 pb-3">
-      <Link to={status === 'guest' ? `/session/${guest?.gameId}` : '/sessions'} className="text-sm font-bold">
+    <header className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-neutral-200 pb-3">
+      <Link
+        to={status === 'guest' ? `/session/${guest?.gameId}` : '/sessions'}
+        className="shrink-0 text-sm font-bold"
+      >
         🐟 fish-tracker
       </Link>
       {status === 'registered' && (
-        <nav className="flex gap-3 text-sm text-neutral-600">
+        <nav className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-neutral-600">
           {/* warm the cache on hover/focus so the click renders from data */}
           <Link to="/sessions" onMouseEnter={warm('games')} onFocus={warm('games')}>
             Sessions
@@ -52,16 +55,25 @@ function Header() {
           </Link>
         </nav>
       )}
-      <span className="ml-auto flex items-center gap-3">
+      {/* ml-auto only once there is a row to push against; when the header
+          wraps on a phone this group starts its own line instead. */}
+      <span className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:ml-auto">
         {status === 'guest' && guest && <GuestBadge displayName={guest.displayName} />}
         {status === 'registered' && me && (
           <CurrencyBar value={me.default_currency} inGameCurrency={game?.currency} />
         )}
         <ThemeToggle />
-        <button onClick={() => setHelpOpen(true)} className="text-xs text-neutral-400" title="Keyboard shortcuts">
+        <button
+          onClick={() => setHelpOpen(true)}
+          className="flex min-h-11 min-w-11 items-center justify-center text-xs text-neutral-400 sm:min-h-0 sm:min-w-0"
+          title="Keyboard shortcuts"
+        >
           ?
         </button>
-        <button onClick={() => void signOut()} className="text-xs text-neutral-400 underline">
+        <button
+          onClick={() => void signOut()}
+          className="flex min-h-11 items-center px-1 text-xs text-neutral-400 underline sm:min-h-0 sm:px-0"
+        >
           sign out
         </button>
       </span>
@@ -75,7 +87,18 @@ export default function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen px-6 py-4">
+      {/* dvh, not vh: mobile browser chrome makes 100vh taller than the
+          visible viewport, which puts the bottom of the page under the URL
+          bar. The safe-area insets keep content clear of the notch and the
+          home indicator in landscape and on iOS standalone. */}
+      <div
+        className="min-h-[100dvh] pt-4
+                   pl-[max(1rem,env(safe-area-inset-left))]
+                   pr-[max(1rem,env(safe-area-inset-right))]
+                   pb-[max(1rem,env(safe-area-inset-bottom))]
+                   sm:pl-[max(1.5rem,env(safe-area-inset-left))]
+                   sm:pr-[max(1.5rem,env(safe-area-inset-right))]"
+      >
         <Header />
         {status === 'signedOut' && (
           // the landing page has no header; the theme is still a choice there

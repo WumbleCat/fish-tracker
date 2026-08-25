@@ -49,7 +49,8 @@ export function EntryLog({
   const rows = [...game.entries].sort((a, b) => b.created_at.localeCompare(a.created_at));
 
   return (
-    <table className="w-full border-collapse text-xs" aria-label="entry log">
+    <div className="overflow-x-auto">
+    <table className="w-full min-w-[44rem] border-collapse text-xs" aria-label="entry log">
       <thead>
         <tr className="border-b border-neutral-300 text-left uppercase tracking-wide text-neutral-500">
           <th className="py-1 pr-2">Time</th>
@@ -106,7 +107,10 @@ export function EntryLog({
               </td>
               <td className="px-2 py-1 text-right">
                 {!provisional && (
-                  <span className="invisible flex justify-end gap-1 group-hover:visible">
+                  // Hover-gated actions are unreachable on a touch screen —
+                  // there is no hover to give. Below sm they are simply
+                  // present; the hover affordance resumes from sm up.
+                  <span className="flex justify-end gap-1 [&>button]:min-h-11 sm:invisible sm:group-hover:visible sm:[&>button]:min-h-0">
                     {isHost && (entry.state === 'pending' || entry.state === 'rejected') && (
                       <button
                         onClick={() => onVerify(entry)}
@@ -166,7 +170,7 @@ export function EntryLog({
                       onKeyDown={(e) => e.key === 'Escape' && setAmending(null)}
                       placeholder="corrected amount"
                       aria-label="corrected amount"
-                      className="num w-24 rounded border border-neutral-300 px-1.5 py-0.5 text-right"
+                      className="num w-24 rounded border border-neutral-300 px-1.5 py-0.5 text-right text-base sm:text-xs"
                     />
                     <button type="submit" className="rounded bg-amber-600 px-1.5 text-white">
                       log
@@ -191,7 +195,7 @@ export function EntryLog({
                       onKeyDown={(e) => e.key === 'Escape' && setVoiding(null)}
                       placeholder="reason (required)"
                       aria-label="void reason"
-                      className="w-36 rounded border border-neutral-300 px-1.5 py-0.5"
+                      className="w-36 rounded border border-neutral-300 px-1.5 py-0.5 text-base sm:text-xs"
                     />
                     <button type="submit" className="rounded bg-neutral-700 px-1.5 text-white">
                       void
@@ -204,5 +208,6 @@ export function EntryLog({
         })}
       </tbody>
     </table>
+    </div>
   );
 }

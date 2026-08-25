@@ -419,7 +419,11 @@ export function Session() {
               Pay the host
             </Popover.Trigger>
             <Popover.Portal>
-              <Popover.Content className="z-10 w-80" sideOffset={6}>
+              <Popover.Content
+                className="z-10 max-h-[70dvh] w-[min(20rem,calc(100vw-2rem))] overflow-y-auto"
+                collisionPadding={16}
+                sideOffset={6}
+              >
                 <PayoutBlock
                   details={hostDetails}
                   isGbp={currency === 'GBP'}
@@ -471,7 +475,7 @@ export function Session() {
         </p>
       )}
 
-      <div className="mb-4 flex gap-6 text-sm">
+      <div className="mb-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
         <span>
           Chips on the table:{' '}
           <strong>
@@ -507,8 +511,13 @@ export function Session() {
         )}
       </div>
 
-      <div className="grid grid-cols-[3fr_2fr] gap-6">
-        <div className="space-y-4">
+      {/* Ledger beside settlement is the desktop shape and stays that way
+          from lg up. Below it the two stack: side by side on a phone gives
+          the ledger a ~180px column, which no amount of inner scrolling
+          rescues. min-w-0 on both children is what actually lets the
+          tables inside scroll instead of forcing the grid wider. */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr]">
+        <div className="min-w-0 space-y-4">
           {(shown.state === 'running' || shown.state === 'settling') && (
             <div className="rounded border border-neutral-200 bg-white p-3">
               {entryFormOpen ? (
@@ -611,7 +620,7 @@ export function Session() {
           </section>
         </div>
 
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           {isHost && (shown.state === 'running' || shown.state === 'settling') && (
             <>
               {focusDetails && <PlayerBankCard details={focusDetails} isGbp={currency === 'GBP'} />}

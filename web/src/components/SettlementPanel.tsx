@@ -123,10 +123,12 @@ export function SettlementPanel({
               return (
                 <li key={i} className="rounded border border-neutral-200 bg-white px-3 py-2 text-sm">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium">{nameOf(p.from_user)}</span>
-                    <span className="text-neutral-400">→</span>
-                    <span className="font-medium">{nameOf(p.to_user)}</span>
-                    <span className="ml-auto font-semibold">
+                    {/* display names run to 60 characters; without min-w-0
+                        two of them push the amount off the card */}
+                    <span className="min-w-0 truncate font-medium">{nameOf(p.from_user)}</span>
+                    <span className="shrink-0 text-neutral-400">→</span>
+                    <span className="min-w-0 truncate font-medium">{nameOf(p.to_user)}</span>
+                    <span className="ml-auto shrink-0 font-semibold">
                       <Amount minor={p.amount_minor} currency={currency} exponent={exponent} />
                     </span>
                   </div>
