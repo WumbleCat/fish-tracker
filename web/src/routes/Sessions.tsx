@@ -6,6 +6,7 @@ import { Link, useNavigate } from 'react-router-dom';
 
 import { api } from '../lib/api';
 import { prefetchGame, useMe, useGames } from '../lib/queries';
+import { DEFAULT_SORT, nextSort, sortGames, type Sort, type SortKey } from '../lib/sessionSort';
 import { useShortcuts } from '../lib/shortcuts';
 import { joinErrorMessage } from './Landing';
 
@@ -18,12 +19,21 @@ const STATE_LABELS: Record<string, string> = {
   abandoned: 'abandoned',
 };
 
+const COLUMNS: { key: SortKey; label: string }[] = [
+  { key: 'name', label: 'Game' },
+  { key: 'created_at', label: 'Date' },
+  { key: 'currency', label: 'Currency' },
+  { key: 'state', label: 'State' },
+  { key: 'role', label: 'Your role' },
+];
+
 export function Sessions() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: games } = useGames();
   const { data: me } = useMe(true);
   const [search, setSearch] = useState('');
+  const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
   const [createOpen, setCreateOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
   const [name, setName] = useState('');
@@ -60,6 +70,7 @@ export function Sessions() {
       (games ?? []).filter((g) => g.name.toLowerCase().includes(search.toLowerCase())),
     [games, search],
   );
+  const rows = useMemo(() => sortGames(filtered, sort), [filtered, sort]);
 
   useShortcuts({
     n: () => setCreateOpen(true),
@@ -141,19 +152,40 @@ export function Sessions() {
         </form>
       )}
 
-      {filtered.length > 0 && (
+      {rows.length > 0 && (
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-neutral-300 text-left text-xs uppercase tracking-wide text-neutral-500">
-              <th className="py-2">Game</th>
-              <th className="py-2">Date</th>
-              <th className="py-2">Currency</th>
-              <th className="py-2">State</th>
-              <th className="py-2">Your role</th>
+              {COLUMNS.map(({ key, label }) => {
+                const active = sort.key === key;
+                return (
+                  <th
+                    key={key}
+                    scope="col"
+                    className="py-2"
+                    aria-sort={
+                      active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'
+                    }
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setSort((s) => nextSort(s, key))}
+                      className="-mx-1 flex items-center gap-1 rounded px-1 uppercase tracking-wide hover:text-neutral-900"
+                    >
+                      {label}
+                      {/* the arrow, not the colour, is what says which way
+                          this column is running */}
+                      <span aria-hidden className={active ? '' : 'text-neutral-300'}>
+                        {active ? (sort.dir === 'asc' ? '▲' : '▼') : '↕'}
+                      </span>
+                    </button>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
-            {filtered.map((g) => (
+            {rows.map((g) => (
               <tr
                 key={g.id}
                 className="border-b border-neutral-100 hover:bg-neutral-100/60"
