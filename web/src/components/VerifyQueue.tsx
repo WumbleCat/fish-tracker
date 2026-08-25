@@ -80,12 +80,18 @@ export function VerifyQueue({
           key={entryKey(entry)}
           aria-selected={index === selected}
           onClick={() => setSelected(index)}
-          className={`flex items-center gap-3 px-2 py-1.5 text-sm ${
+          // flex-wrap so the reject form (w-full) drops to its own line
+          // instead of stretching the row past the panel
+          className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 px-2 py-1.5 text-sm ${
             index === selected ? 'bg-amber-50 ring-1 ring-amber-300' : ''
           }`}
         >
-          <span className="w-28 truncate font-medium">{nameOf(entry.user_id)}</span>
-          <span className="w-16 text-neutral-500">{entry.entry_type.replace('_', '-')}</span>
+          <span className="w-24 min-w-0 shrink truncate font-medium sm:w-28">
+            {nameOf(entry.user_id)}
+          </span>
+          <span className="w-16 shrink-0 text-neutral-500">
+            {entry.entry_type.replace('_', '-')}
+          </span>
           <Amount minor={entry.amount_minor} currency={currency} exponent={exponent} />
           {entry.amends_entry_id && (
             <span className="text-xs text-neutral-400">amends a rejected entry</span>
@@ -95,16 +101,18 @@ export function VerifyQueue({
               logging…
             </span>
           ) : (
-            <span className="ml-auto flex gap-1">
+            // gap-3 between them, not gap-1: verify and reject must not be
+            // adjacent targets a thumb can slip between
+            <span className="ml-auto flex shrink-0 gap-3 sm:gap-1">
               <button
                 onClick={() => onVerify(entry)}
-                className="rounded bg-emerald-700 px-2 py-0.5 text-xs font-medium text-white"
+                className="min-h-11 rounded bg-emerald-700 px-3 py-0.5 text-xs font-medium text-white sm:min-h-0 sm:px-2"
               >
                 Verify
               </button>
               <button
                 onClick={() => setNoteFor(entry.id)}
-                className="rounded border border-rose-300 px-2 py-0.5 text-xs text-rose-700"
+                className="min-h-11 rounded border border-rose-300 px-3 py-0.5 text-xs text-rose-700 sm:min-h-0 sm:px-2"
               >
                 Reject
               </button>
@@ -125,7 +133,7 @@ export function VerifyQueue({
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="note, e.g. 'you put in 20, not 40' (optional)"
-                className="flex-1 rounded border border-neutral-300 px-2 py-1 text-xs"
+                className="min-w-0 flex-1 rounded border border-neutral-300 px-2 py-1 text-base sm:text-xs"
                 onKeyDown={(e) => {
                   if (e.key === 'Escape') {
                     setNoteFor(null);

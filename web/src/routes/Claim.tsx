@@ -75,7 +75,7 @@ export function Claim() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="Email"
-          className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+          className="w-full rounded border border-neutral-300 px-3 py-2 text-base sm:text-sm"
         />
         <input
           type="password"
@@ -84,7 +84,7 @@ export function Claim() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Password (8+ characters)"
-          className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+          className="w-full rounded border border-neutral-300 px-3 py-2 text-base sm:text-sm"
         />
         {error && (
           <p role="alert" className="text-sm text-rose-700">

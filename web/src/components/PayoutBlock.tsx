@@ -66,15 +66,17 @@ export function PayoutBlock({
         <dl className="mt-1 space-y-1">
           {details.sort_code && (
             <div className="flex items-center gap-2">
-              <dt className="w-28 text-neutral-500">Sort code</dt>
+              <dt className="w-24 shrink-0 text-neutral-500 sm:w-28">Sort code</dt>
               <dd className="num">{details.sort_code.replace(/(\d{2})(\d{2})(\d{2})/, '$1-$2-$3')}</dd>
               <CopyButton label="sort code" getValue={async () => details.sort_code} />
             </div>
           )}
           {details.account_number_masked && (
             <div className="flex items-center gap-2">
-              <dt className="w-28 text-neutral-500">Account number</dt>
-              <dd className="num">{revealed ?? details.account_number_masked}</dd>
+              <dt className="w-24 shrink-0 text-neutral-500 sm:w-28">Account number</dt>
+              <dd className="num min-w-0 flex-1 truncate">
+                {revealed ?? details.account_number_masked}
+              </dd>
               <CopyButton
                 label="account number"
                 getValue={() => fetchFullAccountNumber(details.user_id)}
@@ -97,21 +99,25 @@ export function PayoutBlock({
         </dl>
       ) : (
         details.payment_reference && (
-          <div className="mt-1 flex items-center gap-2">
-            <span className="text-neutral-500">Pay via</span>
-            <span>{details.payment_reference}</span>
+          <div className="mt-1 flex items-start gap-2">
+            <span className="shrink-0 text-neutral-500">Pay via</span>
+            {/* an IBAN is one unbroken 30-odd character token — without
+                anywhere to break it, it sets the width of the whole card */}
+            <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
+              {details.payment_reference}
+            </span>
             <CopyButton label="payment reference" getValue={async () => details.payment_reference} />
           </div>
         )
       )}
       {revolutHref && (
-        <div className="mt-1 flex items-center gap-2">
-          <span className="text-neutral-500">Revolut</span>
+        <div className="mt-1 flex items-start gap-2">
+          <span className="shrink-0 text-neutral-500">Revolut</span>
           <a
             href={revolutHref}
             target="_blank"
             rel="noreferrer"
-            className="text-emerald-700 underline underline-offset-2"
+            className="min-w-0 flex-1 text-emerald-700 underline underline-offset-2 [overflow-wrap:anywhere]"
           >
             {details.revolut_link!.replace(/^https:\/\//, '')}
           </a>

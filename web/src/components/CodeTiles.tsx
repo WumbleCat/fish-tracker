@@ -22,7 +22,8 @@ export function CodeTiles({
 }: {
   value: string;
   onChange: (code: string) => void;
-  /** Tile diameter in px. */
+  /** Largest tile diameter in px. Tiles shrink below this to fit the
+   * container — six 78px tiles plus gaps need 528px, which no phone has. */
   size?: number;
   autoFocus?: boolean;
   ariaLabel?: string;
@@ -33,10 +34,15 @@ export function CodeTiles({
 
   return (
     <div className="relative">
+      {/* Each tile is a flex child that may shrink (min-w-0) and stays
+          circular via aspect-square, capped at `size`. The row therefore
+          fits any width from 320px up without a media query, and the
+          character scales with the tile through cqw units. */}
       <div
-        className="flex gap-3"
+        className="@container flex gap-2 sm:gap-3"
         onClick={() => inputRef.current?.focus()}
         data-testid="code-tiles"
+        style={{ maxWidth: size * CODE_LENGTH + 12 * (CODE_LENGTH - 1) }}
       >
         {cells.map((char, i) => {
           const filled = char !== '';
@@ -45,7 +51,7 @@ export function CodeTiles({
             <div
               key={i}
               aria-hidden
-              className={`num flex items-center justify-center rounded-full border-2 text-felt-100 ${
+              className={`num flex aspect-square min-w-0 flex-1 items-center justify-center rounded-full border-2 text-[clamp(15px,7cqw,32px)] text-felt-100 ${
                 filled
                   ? 'border-emerald-400 bg-emerald-950'
                   : active
@@ -53,9 +59,7 @@ export function CodeTiles({
                     : 'border-felt-700 bg-white/5'
               }`}
               style={{
-                width: size,
-                height: size,
-                fontSize: size * 0.41,
+                maxWidth: size,
                 boxShadow: 'inset 0 0 0 5px rgba(255,255,255,.04), 0 6px 18px rgba(0,0,0,.45)',
               }}
             >

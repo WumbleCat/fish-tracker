@@ -25,8 +25,11 @@ function Row({
 }) {
   return (
     <div className="flex items-center gap-2 py-1.5">
-      <dt className="w-32 shrink-0 text-xs text-neutral-500">{label}</dt>
-      <dd className="num truncate">{value}</dd>
+      <dt className="w-24 shrink-0 text-xs text-neutral-500 sm:w-32">{label}</dt>
+      {/* truncate on a flex child does nothing without min-w-0: the child's
+          automatic minimum size is its content, so it pushes the row wide
+          instead of ellipsing. A payment reference can be a full IBAN. */}
+      <dd className="num min-w-0 flex-1 truncate">{value}</dd>
       <span className="ml-auto flex shrink-0 items-center">
         {extra}
         <CopyButton label={copyLabel} getValue={getValue} />

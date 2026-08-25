@@ -86,7 +86,7 @@ export function Settings() {
             <input
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-base sm:text-sm"
             />
           </label>
           <button className="rounded bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white">
@@ -117,30 +117,30 @@ export function Settings() {
             <input
               value={accountName}
               onChange={(e) => setAccountName(e.target.value)}
-              className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-base sm:text-sm"
             />
           </label>
-          <div className="flex gap-3">
-            <label className="block flex-1 text-xs text-neutral-600">
+          <div className="flex flex-wrap gap-3">
+            <label className="block min-w-0 flex-1 basis-36 text-xs text-neutral-600">
               Sort code (6 digits)
               <input
                 value={sortCode}
                 onChange={(e) => setSortCode(e.target.value.replace(/[^0-9]/g, ''))}
                 maxLength={6}
                 inputMode="numeric"
-                className={`num mt-1 w-full rounded border px-3 py-2 text-sm ${
+                className={`num mt-1 w-full rounded border px-3 py-2 text-base sm:text-sm ${
                   sortCodeValid ? 'border-neutral-300' : 'border-rose-400'
                 }`}
               />
             </label>
-            <label className="block flex-1 text-xs text-neutral-600">
+            <label className="block min-w-0 flex-1 basis-36 text-xs text-neutral-600">
               Account number (8 digits)
               <input
                 value={accountNumber}
                 onChange={(e) => setAccountNumber(e.target.value.replace(/[^0-9]/g, ''))}
                 maxLength={8}
                 inputMode="numeric"
-                className={`num mt-1 w-full rounded border px-3 py-2 text-sm ${
+                className={`num mt-1 w-full rounded border px-3 py-2 text-base sm:text-sm ${
                   accountNumberValid ? 'border-neutral-300' : 'border-rose-400'
                 }`}
               />
@@ -151,7 +151,7 @@ export function Settings() {
             <input
               value={paymentReference}
               onChange={(e) => setPaymentReference(e.target.value)}
-              className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-base sm:text-sm"
             />
           </label>
           <label className="block text-xs text-neutral-600">
@@ -160,7 +160,7 @@ export function Settings() {
               value={revolutLink}
               onChange={(e) => setRevolutLink(e.target.value.trim())}
               placeholder="revolut.me/yourname"
-              className={`mt-1 w-full rounded border px-3 py-2 text-sm ${
+              className={`mt-1 w-full rounded border px-3 py-2 text-base sm:text-sm ${
                 revolutValid ? 'border-neutral-300' : 'border-rose-400'
               }`}
             />

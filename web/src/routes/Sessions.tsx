@@ -79,24 +79,29 @@ export function Sessions() {
 
   return (
     <div className="mx-auto max-w-4xl">
-      <div className="mb-4 flex items-center gap-3">
-        <h1 className="text-xl font-semibold">Sessions</h1>
+      <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+        {/* the heading takes its own line on a phone so the two buttons stay
+            on one line together rather than splitting across the wrap */}
+        <h1 className="w-full text-xl font-semibold sm:w-auto">Sessions</h1>
+        {/* full width on its own line below sm, then back to the right-hand
+            end of the title row — a 224px field cannot share 320px with two
+            buttons and a heading */}
         <input
           ref={searchRef}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search  ( / )"
-          className="ml-auto w-56 rounded border border-neutral-300 px-3 py-1.5 text-sm"
+          className="order-last w-full rounded border border-neutral-300 px-3 py-1.5 text-base sm:order-none sm:ml-auto sm:w-56 sm:text-sm"
         />
         <button
           onClick={() => setJoinOpen(true)}
-          className="rounded border border-neutral-300 px-3 py-1.5 text-sm"
+          className="min-h-11 rounded border border-neutral-300 px-3 py-1.5 text-sm sm:min-h-0"
         >
           Join by code
         </button>
         <button
           onClick={() => setCreateOpen(true)}
-          className="rounded bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white"
+          className="min-h-11 rounded bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white sm:min-h-0"
         >
           New game (n)
         </button>
@@ -122,7 +127,7 @@ export function Sessions() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Friday at mine"
-                className="w-44 rounded-lg border border-felt-700 bg-white/5 px-3 py-1.5 text-right text-felt-100 placeholder:text-felt-600 focus:border-emerald-400 focus:outline-none"
+                className="w-44 min-w-0 rounded-lg border border-felt-700 bg-white/5 px-3 py-1.5 text-right text-base text-felt-100 placeholder:text-felt-600 focus:border-emerald-400 focus:outline-none sm:text-sm"
                 aria-label="game name"
               />
             </label>
@@ -153,7 +158,10 @@ export function Sessions() {
       )}
 
       {rows.length > 0 && (
-        <table className="w-full text-sm">
+        // the table keeps its columns and scrolls inside this box; the page
+        // itself never scrolls sideways
+        <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+        <table className="w-full min-w-[34rem] text-sm">
           <thead>
             <tr className="border-b border-neutral-300 text-left text-xs uppercase tracking-wide text-neutral-500">
               {COLUMNS.map(({ key, label }) => {
@@ -208,12 +216,13 @@ export function Sessions() {
             ))}
           </tbody>
         </table>
+        </div>
       )}
 
       <Dialog.Root open={createOpen} onOpenChange={setCreateOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/30" />
-          <Dialog.Content className="fixed left-1/2 top-1/3 w-96 -translate-x-1/2 rounded-lg bg-white p-4 shadow-xl">
+          <Dialog.Content className="fixed left-1/2 top-1/3 max-h-[calc(100dvh-6rem)] w-[min(24rem,calc(100vw-2rem))] -translate-x-1/2 overflow-y-auto rounded-lg bg-white p-4 shadow-xl">
             <Dialog.Title className="text-sm font-semibold">New game</Dialog.Title>
             <Dialog.Description className="sr-only">Create a new game</Dialog.Description>
             <form
@@ -228,7 +237,7 @@ export function Sessions() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder={`e.g. Friday at ${me?.display_name ?? 'mine'}'s`}
-                className="w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                className="w-full rounded border border-neutral-300 px-3 py-2 text-base sm:text-sm"
               />
               <p className="text-xs text-neutral-500">
                 Currency: {me?.default_currency ?? 'GBP'} (your default — changeable until the
@@ -248,7 +257,7 @@ export function Sessions() {
       <Dialog.Root open={joinOpen} onOpenChange={setJoinOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/30" />
-          <Dialog.Content className="fixed left-1/2 top-1/3 w-96 -translate-x-1/2 rounded-lg bg-white p-4 shadow-xl">
+          <Dialog.Content className="fixed left-1/2 top-1/3 max-h-[calc(100dvh-6rem)] w-[min(24rem,calc(100vw-2rem))] -translate-x-1/2 overflow-y-auto rounded-lg bg-white p-4 shadow-xl">
             <Dialog.Title className="text-sm font-semibold">Join a game</Dialog.Title>
             <Dialog.Description className="sr-only">Join a game by code</Dialog.Description>
             <form

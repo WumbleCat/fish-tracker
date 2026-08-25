@@ -23,7 +23,11 @@ export function LedgerTable({
     game.entries.filter((e) => e.user_id === userId && e.state === 'verified');
 
   return (
-    <table className="w-full border-collapse text-sm" aria-label="ledger">
+    // Six money columns do not fit a phone and must not be dropped — a
+    // hidden column is a hidden figure. The table keeps every column and
+    // scrolls within its own box; the page never scrolls sideways.
+    <div className="overflow-x-auto">
+    <table className="w-full min-w-[36rem] border-collapse text-sm" aria-label="ledger">
       <thead>
         <tr className="border-b border-neutral-300 text-left text-xs uppercase tracking-wide text-neutral-500">
           <th className="py-1.5 pr-2">Player</th>
@@ -98,5 +102,6 @@ export function LedgerTable({
         })}
       </tbody>
     </table>
+    </div>
   );
 }
