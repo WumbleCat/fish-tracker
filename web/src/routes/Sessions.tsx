@@ -137,7 +137,7 @@ export function Sessions() {
             </div>
             <div className="flex justify-between text-felt-300">
               <span>Seats</span>
-              <span className="num text-felt-100">9</span>
+              <span className="num text-felt-100">11</span>
             </div>
           </div>
           {openTable.isError && (

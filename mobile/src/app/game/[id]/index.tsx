@@ -10,6 +10,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { Text } from '../../../components/Text';
 
 import { AmountText } from '../../../components/AmountText';
+import { BlindsRow } from '../../../components/BlindsRow';
 import { EntrySheetContent } from '../../../components/EntrySheetContent';
 import { NetList } from '../../../components/NetList';
 import { OfflineBanner } from '../../../components/OfflineBanner';
@@ -119,6 +120,20 @@ export default function GameScreen() {
             </Text>
           </Text>
         )}
+
+        <BlindsRow
+          smallMinor={game.small_blind_minor}
+          bigMinor={game.big_blind_minor}
+          currency={currency}
+          exponent={exponent}
+          canEdit={isHost && online && game.state !== 'closed' && game.state !== 'abandoned'}
+          onChange={(small, big) => {
+            void api
+              .setBlinds(id!, small, big, game.version)
+              .then(invalidate)
+              .catch(() => invalidate());
+          }}
+        />
 
         <View style={{ flexDirection: 'row', gap: 16 }}>
           <View>

@@ -57,11 +57,15 @@ export interface Game {
   currency: string;
   currency_exponent: number;
   stake_minor: number | null;
+  /** The table's stakes. Not ledger money — never summed into a net or total. */
+  small_blind_minor: number | null;
+  big_blind_minor: number | null;
   created_at: string;
   closed_at: string | null;
   version: number;
   members: Member[];
   entries: Entry[];
+  events: GameEvent[];
   nets: PlayerNet[];
   totals: GameTotals;
 }
@@ -120,4 +124,20 @@ export interface CurrencyHistory {
   total_cash_outs_minor: number;
   net_minor: number;
   adjustments_minor: number;
+}
+
+/** Non-money occurrences, rendered inline in the log and never counted
+ * (app-logic, 2026-08-26). */
+export type GameEventType = 'blinds_changed';
+
+export interface GameEvent {
+  id: string;
+  game_id: string;
+  event_type: GameEventType;
+  actor_user_id: string;
+  created_at: string;
+  from_small_blind_minor: number | null;
+  from_big_blind_minor: number | null;
+  to_small_blind_minor: number | null;
+  to_big_blind_minor: number | null;
 }

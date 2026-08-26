@@ -88,6 +88,29 @@ Every game has exactly one currency, chosen by the host at creation. **GBP is th
 - There is **no FX conversion anywhere**. A player's lifetime history across a GBP game and a EUR game shows two separate totals, not a combined one. Summing across currencies is a bug, not a feature — if a task asks for a single combined lifetime number, raise it rather than picking a rate.
 - Amounts are stored as integer **minor units** against the currency's exponent (GBP → pence, exponent 2). See `backend` for the column contract. A currency with a different exponent (JPY, exponent 0) must not be special-cased in client code — read the exponent from the game.
 
+## Blinds (added 2026-08-26)
+
+A game may carry a **small blind** and a **big blind**, both integer minor units in the game's currency, both optional. They are the table's stakes — this is a cash game, so there is one pair of blinds in force at a time, not a schedule of escalating levels. A structure of timed levels is tournament shape and stays out of scope.
+
+- The host sets them at creation and may **change them at any point before the game closes**. Home games raise the stakes mid-session; refusing that would just mean the ledger disagrees with the table.
+- Big blind must be greater than or equal to small blind. Both must be positive when present, and they are set together — a big blind with no small blind is not a state worth having.
+- Blinds are **not money in the ledger**. They never enter a net, a total, reconciliation or a settlement. They describe how the game is played, not what anybody is owed. Nothing that sums entries may see them.
+- Blinds are distinct from `stake_minor`, which is the default buy-in amount the clients pre-fill. A game may have either, both or neither.
+- Changing the blinds is host-only, and refused once the game is `closed` or `abandoned` — a finished game's history does not move.
+
+**Every blind change is recorded as a game event** and shown in the entry log alongside the money rows, with who changed it, when, and both the old and new values. The current blinds tell you what the table is playing; the events tell you what it was playing at 21:04, which is the question people actually ask.
+
+## Game events
+
+Some things worth recording are not entries. An entry is a claim about money and carries an amount that settlement sums; a blind change is neither. Rather than widen the entry model to hold rows with no amount — which would put a filter in front of every sum in the system and make one of them wrong eventually — non-money occurrences are their own append-only record.
+
+- Game events are **append-only**: never updated, never deleted, same as entries.
+- They are **never counted**. No event contributes to a net, a total, reconciliation or a settlement.
+- Every player in the game can read them, on the same terms as the ledger they sit beside.
+- Clients render them **inline in the entry log**, visually distinct from money rows, so the night reads in one timeline.
+
+The only event type today is a blind change. New types are added deliberately, and adding one is never a reason to give an event an amount.
+
 ## Entry lifecycle
 
 Every buy-in, rebuy and cash-out is an entry.
@@ -185,7 +208,7 @@ Joining uses a short human-readable code or a link — people are in a room toge
 
 A player joining mid-game is normal, not an edge case. They join at `running`, and their first buy-in behaves like any other.
 
-**A table seats at most nine** (decided 2026-08-24) — the host included, since the host plays. A join that would make a tenth active member is refused with `table_full`; it is a normal condition, phrased as "that table is full", never a fault. A player who has left (`departed_at` set) no longer occupies a seat, so a seat frees when someone leaves and is taken again if they rejoin. The count is of people at the table, not of entries — a departed-unsettled player still holds no seat, though their unresolved entries still block close.
+**A table seats at most eleven** (decided 2026-08-26, superseding the nine of 2026-08-24) — the host included, since the host plays. A join that would make a twelfth active member is refused with `table_full`; it is a normal condition, phrased as "that table is full", never a fault. The limit is a single fixed number for every game: a per-game seat count was considered and not taken, so nothing reads a capacity off the game row. A player who has left (`departed_at` set) no longer occupies a seat, so a seat frees when someone leaves and is taken again if they rejoin. The count is of people at the table, not of entries — a departed-unsettled player still holds no seat, though their unresolved entries still block close.
 
 **A join link** carries the code: `/join/<CODE>` on the web pre-fills the code so a guest only types a name, and signs a registered user straight in to the game; the phone app accepts the same code through its own link. The link is the code in another form — it grants nothing the code doesn't, and expires with the game's joinable states exactly as the code does.
 
@@ -212,6 +235,7 @@ Enforce on the server. Client-side checks are a UX affordance, not a control.
 - Amend: the entry's owner, rejected entries only
 - Admit / remove player: host only
 - Set or change currency: host only, and only while the game holds zero entries
+- Set or change blinds: host only, any state except `closed` and `abandoned`; each change writes a game event
 - Edit own payout details: the owning registered user only
 - Read another player's payout details: only players in a shared unsettled or recently closed game
 - Change game state: host only

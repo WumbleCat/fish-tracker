@@ -38,7 +38,7 @@ for _stream in (sys.stdout, sys.stderr):
 LOOPBACK = {"127.0.0.1", "localhost", "::1", "[::1]"}
 DEFAULT_DB = "postgresql+psycopg://postgres:postgres@127.0.0.1:54322/postgres"
 DEFAULT_SECRET = "super-secret-jwt-token-with-at-least-32-characters-long"
-SEAT_LIMIT = 9  # host included — supabase/migrations/*_table_capacity.sql
+SEAT_LIMIT = 11  # host included — app-logic 2026-08-26, superseding nine
 RACED = 10  # entries put through the verify race
 SYMBOLS = {"GBP": "£", "USD": "$", "EUR": "€"}
 
@@ -549,7 +549,7 @@ def main() -> None:
     p.add_argument("--base-url", default="http://127.0.0.1:8000")
     p.add_argument("--database-url", default=DEFAULT_DB)
     p.add_argument("--jwt-secret", default=DEFAULT_SECRET)
-    p.add_argument("--players", type=int, default=8, help=f"capped at {SEAT_LIMIT - 1}")
+    p.add_argument("--players", type=int, default=10, help=f"capped at {SEAT_LIMIT - 1}")
     p.add_argument("--rounds", type=int, default=6, help="buy-ins per player")
     p.add_argument("--racers", type=int, default=8, help="concurrent verifies per entry")
     p.add_argument("--concurrency", type=int, default=32)

@@ -7,8 +7,10 @@ from app.deps import CurrentPrincipal, DbSession
 from app.models import Game
 from app.schemas.entries import EntryCreate, EntryOut
 from app.schemas.games import (
+    BlindsChangeRequest,
     CurrencyChangeRequest,
     GameCreate,
+    GameEventOut,
     GameOut,
     GameSummary,
     GameTotals,
@@ -31,6 +33,7 @@ router = APIRouter(prefix="/api/games", tags=["games"])
 def _game_out(session: Session, game: Game) -> GameOut:
     members = games_service.game_members_with_users(session, game.id)
     entries = games_service.game_entries(session, game.id)
+    events = games_service.game_events(session, game.id)
     positions = games_service.compute_positions(entries)
     nets = [
         PlayerNet(
@@ -50,6 +53,8 @@ def _game_out(session: Session, game: Game) -> GameOut:
         currency=game.currency,
         currency_exponent=game.currency_exponent,
         stake_minor=game.stake_minor,
+        small_blind_minor=game.small_blind_minor,
+        big_blind_minor=game.big_blind_minor,
         created_at=game.created_at,
         closed_at=game.closed_at,
         version=game.version,
@@ -66,6 +71,7 @@ def _game_out(session: Session, game: Game) -> GameOut:
             for m, u in members
         ],
         entries=[EntryOut.model_validate(e) for e in entries],
+        events=[GameEventOut.model_validate(e) for e in events],
         nets=nets,
         totals=GameTotals(
             verified_buy_ins_minor=positions["verified_buy_ins"],
@@ -80,7 +86,7 @@ def _game_out(session: Session, game: Game) -> GameOut:
 def create_game(body: GameCreate, session: DbSession, principal: CurrentPrincipal):
     game = games_service.create_game(
         session, principal, body.name, body.currency, body.currency_exponent,
-        body.stake_minor,
+        body.stake_minor, body.small_blind_minor, body.big_blind_minor,
     )
     return _game_out(session, game)
 
@@ -169,6 +175,20 @@ def change_currency(
 ):
     game = games_service.change_currency(
         session, principal, game_id, body.currency, body.currency_exponent,
+        body.if_version,
+    )
+    return _game_out(session, game)
+
+
+@router.post("/{game_id}/blinds", response_model=GameOut)
+def set_blinds(
+    game_id: uuid.UUID,
+    body: BlindsChangeRequest,
+    session: DbSession,
+    principal: CurrentPrincipal,
+):
+    game = games_service.set_blinds(
+        session, principal, game_id, body.small_blind_minor, body.big_blind_minor,
         body.if_version,
     )
     return _game_out(session, game)

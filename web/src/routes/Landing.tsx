@@ -20,7 +20,7 @@ export function joinErrorMessage(e: unknown): string {
       case 'game_not_joinable':
         return "That game isn't accepting players right now.";
       case 'table_full':
-        return 'That table is full — nine seats, all taken.';
+        return 'That table is full — eleven seats, all taken.';
       case 'guest_unavailable':
         return 'Guest joining is unavailable right now — sign in instead.';
     }

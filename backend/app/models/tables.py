@@ -24,7 +24,13 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
-from app.models.enums import EntryState, EntryType, GameState, MemberRole
+from app.models.enums import (
+    EntryState,
+    EntryType,
+    GameEventType,
+    GameState,
+    MemberRole,
+)
 
 
 def _pg_enum(py_enum, name: str) -> PgEnum:
@@ -84,6 +90,10 @@ class Game(Base):
     currency: Mapped[str] = mapped_column(CHAR(3), server_default=text("'GBP'"))
     currency_exponent: Mapped[int] = mapped_column(SmallInteger, server_default=text("2"))
     stake_minor: Mapped[int | None] = mapped_column(BigInteger)
+    # The table's stakes. Not ledger money: never summed into a net,
+    # total, reconciliation or settlement (app-logic, 2026-08-26).
+    small_blind_minor: Mapped[int | None] = mapped_column(BigInteger)
+    big_blind_minor: Mapped[int | None] = mapped_column(BigInteger)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text("now()")
     )
@@ -187,3 +197,28 @@ class Adjustment(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text("now()")
     )
+
+
+class GameEvent(Base):
+    """Append-only, never counted. Sits beside the entries in the log and
+    contributes nothing to any figure (app-logic, 2026-08-26)."""
+
+    __tablename__ = "game_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    game_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("games.id"))
+    event_type: Mapped[GameEventType] = mapped_column(
+        _pg_enum(GameEventType, "game_event_type")
+    )
+    actor_user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("now()")
+    )
+    from_small_blind_minor: Mapped[int | None] = mapped_column(BigInteger)
+    from_big_blind_minor: Mapped[int | None] = mapped_column(BigInteger)
+    to_small_blind_minor: Mapped[int | None] = mapped_column(BigInteger)
+    to_big_blind_minor: Mapped[int | None] = mapped_column(BigInteger)
