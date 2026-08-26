@@ -107,17 +107,15 @@ export default function App() {
           </div>
         )}
         <Routes>
+          {/* The front door is the front door, signed in or not: someone
+              opening the app at the table is usually joining a game, not
+              browsing their history. Sessions lives at /sessions.
+              A guest is the exception — their session is one game, and
+              being returned to it is the remembered-guest continuity the
+              app deliberately keeps. */}
           <Route
             path="/"
-            element={
-              status === 'registered' ? (
-                <Navigate to="/sessions" replace />
-              ) : status === 'guest' ? (
-                <Navigate to="/claim-home" replace />
-              ) : (
-                <Landing />
-              )
-            }
+            element={status === 'guest' ? <Navigate to="/claim-home" replace /> : <Landing />}
           />
           <Route path="/claim-home" element={<GuestHome />} />
           <Route path="/join/:code" element={<JoinLink />} />
