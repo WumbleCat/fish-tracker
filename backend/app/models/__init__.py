@@ -1,9 +1,16 @@
 from app.models.base import Base
-from app.models.enums import EntryState, EntryType, GameState, MemberRole
+from app.models.enums import (
+    EntryState,
+    EntryType,
+    GameEventType,
+    GameState,
+    MemberRole,
+)
 from app.models.tables import (
     Adjustment,
     Entry,
     Game,
+    GameEvent,
     GameMember,
     PayoutDetails,
     PushToken,
@@ -21,6 +28,8 @@ __all__ = [
     "PayoutDetails",
     "PushToken",
     "Game",
+    "GameEvent",
+    "GameEventType",
     "GameMember",
     "Entry",
     "Settlement",

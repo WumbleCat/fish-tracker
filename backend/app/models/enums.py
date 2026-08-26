@@ -26,3 +26,10 @@ class EntryState(str, Enum):
 class MemberRole(str, Enum):
     player = "player"
     host = "host"
+
+
+class GameEventType(str, Enum):
+    """Non-money occurrences worth recording. An event never carries an
+    amount and is never summed (app-logic, 2026-08-26)."""
+
+    blinds_changed = "blinds_changed"

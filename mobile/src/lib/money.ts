@@ -74,3 +74,15 @@ export function parseToMinor(input: string, exponent: number): number | null {
   if (!Number.isSafeInteger(minor)) return null;
   return minor;
 }
+
+/** The table's stakes as one label: "£0.10/£0.20". Formatting only — blinds
+ * are never arithmetic, and never enter a net or a total. */
+export function fmtBlinds(
+  smallMinor: number | null,
+  bigMinor: number | null,
+  code: string,
+  exponent: number,
+): string | null {
+  if (smallMinor === null || bigMinor === null) return null;
+  return `${fmtMinor(smallMinor, code, exponent)}/${fmtMinor(bigMinor, code, exponent)}`;
+}

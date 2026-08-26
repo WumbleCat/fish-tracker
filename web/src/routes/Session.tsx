@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 import { Amount } from '../components/Amount';
+import { BlindsControl } from '../components/BlindsControl';
 import { EntryForm, type EntryDraft } from '../components/EntryForm';
 import { EntryLog } from '../components/EntryLog';
 import { LedgerTable } from '../components/LedgerTable';
@@ -57,8 +58,9 @@ interface Notice {
   restore?: EntryDraft;
 }
 
-/** A table seats nine, host included (app-logic). Display only — the API refuses the tenth. */
-const MAX_SEATS = 9;
+/** A table seats eleven, host included (app-logic, 2026-08-26). Display only —
+ * the API refuses the twelfth. */
+const MAX_SEATS = 11;
 
 function CopyChip({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false);
@@ -285,6 +287,32 @@ export function Session() {
     ),
   );
 
+  // Blinds are the table's stakes, not ledger money: this is optimistic
+  // because nothing downstream of it is a figure anyone is owed.
+  const setBlinds = useMutation({
+    mutationKey: ['game', id, 'write'],
+    mutationFn: ({ small, big }: { small: number; big: number }) =>
+      serialize(`game:${id}:blinds`, () =>
+        api.setBlinds(id!, small, big, queryClient.getQueryData<Game>(['game', id])?.version),
+      ),
+    onMutate: async ({ small, big }) => {
+      await cancelReads();
+      const previous = queryClient.getQueryData<Game>(['game', id]);
+      if (previous)
+        queryClient.setQueryData<Game>(['game', id], {
+          ...previous,
+          small_blind_minor: small,
+          big_blind_minor: big,
+        });
+      return { previous };
+    },
+    onError: (e, _vars, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(['game', id], ctx.previous);
+      setNotice({ text: `Undid the blind change — ${reasonOf(e)}.` });
+    },
+    onSettled: () => reconcile(),
+  });
+
   const changeState = useMutation({
     mutationKey: ['game', id, 'write'],
     mutationFn: (to: GameState) =>
@@ -399,10 +427,18 @@ export function Session() {
         </span>
         <span
           className="num rounded bg-neutral-200 px-2 py-0.5 text-xs"
-          title="Seats taken — a table holds nine, host included"
+          title="Seats taken — a table holds eleven, host included"
         >
           {seated}/{MAX_SEATS} seats
         </span>
+        <BlindsControl
+          smallMinor={shown.small_blind_minor}
+          bigMinor={shown.big_blind_minor}
+          currency={currency}
+          exponent={exponent}
+          canEdit={isHost && shown.state !== 'closed' && shown.state !== 'abandoned'}
+          onChange={(small, big) => setBlinds.mutate({ small, big })}
+        />
         {(shown.state === 'open' || shown.state === 'running') && (
           <>
             <span className="num text-sm text-neutral-500">

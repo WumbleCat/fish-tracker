@@ -19,6 +19,8 @@ from app.models import (
     EntryState,
     EntryType,
     Game,
+    GameEvent,
+    GameEventType,
     GameMember,
     GameState,
     MemberRole,
@@ -92,6 +94,8 @@ def create_game(
     currency: str,
     currency_exponent: int | None,
     stake_minor: int | None,
+    small_blind_minor: int | None = None,
+    big_blind_minor: int | None = None,
 ) -> Game:
     principal.require_registered()
     exponent = (
@@ -113,6 +117,8 @@ def create_game(
         currency=currency,
         currency_exponent=exponent,
         stake_minor=stake_minor,
+        small_blind_minor=small_blind_minor,
+        big_blind_minor=big_blind_minor,
     )
     session.add(game)
     session.flush()
@@ -352,6 +358,68 @@ def change_currency(
         if currency_exponent is not None
         else currency_exponent_for(currency)
     )
+    game.version += 1
+    session.flush()
+    return game
+
+
+def game_events(session: Session, game_id: uuid.UUID) -> list[GameEvent]:
+    """Read-only companion to game_entries. Nothing downstream sums these."""
+    return list(
+        session.execute(
+            select(GameEvent)
+            .where(GameEvent.game_id == game_id)
+            .order_by(GameEvent.created_at)
+        ).scalars()
+    )
+
+
+def set_blinds(
+    session: Session,
+    principal: Principal,
+    game_id: uuid.UUID,
+    small_blind_minor: int,
+    big_blind_minor: int,
+    if_version: int | None,
+) -> Game:
+    """Host-only, allowed at any point before the game is finished. Home
+    games raise the stakes mid-session; refusing that would only mean the
+    ledger disagreed with the table (app-logic, 2026-08-26).
+
+    The blinds are not ledger money — nothing here touches an entry, a net or
+    a total. The change is recorded as a game event so the log can answer
+    "what were we playing at 21:04", which is the question people ask.
+    """
+    game = load_member_game(session, principal, game_id, for_update=True)
+    require_host(session, principal, game)
+    _check_game_version(game, if_version)
+    if game.state in (GameState.closed, GameState.abandoned):
+        raise AppError("game_finished", 409, {"state": game.state.value})
+    if big_blind_minor < small_blind_minor:
+        raise AppError("blinds_invalid", 422, {"reason": "big blind is below small blind"})
+
+    unchanged = (
+        game.small_blind_minor == small_blind_minor
+        and game.big_blind_minor == big_blind_minor
+    )
+    if unchanged:
+        # A no-op write would put a "changed" row in the log that records no
+        # change. Return the game untouched instead.
+        return game
+
+    session.add(
+        GameEvent(
+            game_id=game.id,
+            event_type=GameEventType.blinds_changed,
+            actor_user_id=principal.user.id,
+            from_small_blind_minor=game.small_blind_minor,
+            from_big_blind_minor=game.big_blind_minor,
+            to_small_blind_minor=small_blind_minor,
+            to_big_blind_minor=big_blind_minor,
+        )
+    )
+    game.small_blind_minor = small_blind_minor
+    game.big_blind_minor = big_blind_minor
     game.version += 1
     session.flush()
     return game

@@ -7,7 +7,8 @@ import { useState } from 'react';
 
 import { parseToMinor } from '../lib/money';
 import { entryKey, inFlightLabel, isOptimistic, type InFlight } from '../lib/optimistic';
-import type { Entry, Game } from '../lib/types';
+import { fmtBlinds } from '../lib/money';
+import type { Entry, Game, GameEvent } from '../lib/types';
 import { Amount } from './Amount';
 
 const STATE_STYLES: Record<Entry['state'], string> = {
@@ -16,6 +17,39 @@ const STATE_STYLES: Record<Entry['state'], string> = {
   rejected: 'text-rose-700 bg-rose-50',
   void: 'text-neutral-400 bg-neutral-100 line-through',
 };
+
+/** A non-money row in the log: muted, dashed amount column, and visibly not
+ * a claim about money. */
+function EventRow({ event, game }: { event: GameEvent; game: Game }) {
+  const { currency, currency_exponent: exponent } = game;
+  const who =
+    game.members.find((m) => m.user_id === event.actor_user_id)?.display_name ?? 'the host';
+  const from = fmtBlinds(
+    event.from_small_blind_minor,
+    event.from_big_blind_minor,
+    currency,
+    exponent,
+  );
+  const to = fmtBlinds(event.to_small_blind_minor, event.to_big_blind_minor, currency, exponent);
+
+  return (
+    <tr className="border-b border-neutral-100 bg-neutral-50/60 text-neutral-500">
+      <td className="num py-1 pr-2">
+        {new Date(event.created_at).toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        })}
+      </td>
+      <td className="px-2 py-1">{who}</td>
+      <td className="px-2 py-1 italic">blinds</td>
+      {/* no amount: an event is not money */}
+      <td className="px-2 py-1 text-right">—</td>
+      <td className="num px-2 py-1" colSpan={3}>
+        {from ? `${from} → ${to}` : `set to ${to}`}
+      </td>
+    </tr>
+  );
+}
 
 export function EntryLog({
   game,
@@ -46,7 +80,20 @@ export function EntryLog({
   const [voiding, setVoiding] = useState<string | null>(null);
   const [voidReason, setVoidReason] = useState('');
 
-  const rows = [...game.entries].sort((a, b) => b.created_at.localeCompare(a.created_at));
+  // Entries and events share the timeline so the night reads in one pass.
+  // Events carry no amount and are never counted — they are rendered, not
+  // summed (app-logic, 2026-08-26).
+  type Row =
+    | { kind: 'entry'; at: string; entry: Entry }
+    | { kind: 'event'; at: string; event: GameEvent };
+  const rows: Row[] = [
+    ...game.entries.map((e) => ({ kind: 'entry' as const, at: e.created_at, entry: e })),
+    ...(game.events ?? []).map((e) => ({
+      kind: 'event' as const,
+      at: e.created_at,
+      event: e,
+    })),
+  ].sort((a, b) => b.at.localeCompare(a.at));
 
   return (
     <div className="overflow-x-auto">
@@ -63,7 +110,9 @@ export function EntryLog({
         </tr>
       </thead>
       <tbody>
-        {rows.map((entry) => {
+        {rows.map((row) => {
+          if (row.kind === 'event') return <EventRow key={row.event.id} event={row.event} game={game} />;
+          const entry = row.entry;
           const provisional = inflight[entry.id] ?? (isOptimistic(entry) ? 'log' : null);
           return (
             <tr key={entryKey(entry)} className="group border-b border-neutral-100">

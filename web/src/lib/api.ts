@@ -85,9 +85,26 @@ export const api = {
 
   games: () => request<GameSummary[]>('GET', '/api/games'),
   game: (id: string) => request<Game>('GET', `/api/games/${id}`),
-  createGame: (body: { name: string; currency: string; stake_minor?: number | null }) =>
-    request<Game>('POST', '/api/games', body),
+  createGame: (body: {
+    name: string;
+    currency: string;
+    stake_minor?: number | null;
+    small_blind_minor?: number | null;
+    big_blind_minor?: number | null;
+  }) => request<Game>('POST', '/api/games', body),
   joinGame: (join_code: string) => request<Game>('POST', '/api/games/join', { join_code }),
+  /** Host only. The change is recorded as a game event server-side. */
+  setBlinds: (
+    id: string,
+    small_blind_minor: number,
+    big_blind_minor: number,
+    if_version?: number,
+  ) =>
+    request<Game>('POST', `/api/games/${id}/blinds`, {
+      small_blind_minor,
+      big_blind_minor,
+      if_version,
+    }),
   changeState: (id: string, to: GameState, if_version?: number) =>
     request<Game>('POST', `/api/games/${id}/state`, { to, if_version }),
   close: (id: string, acknowledge_discrepancy: boolean, if_version?: number) =>
