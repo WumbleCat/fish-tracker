@@ -4,11 +4,22 @@ import { format } from 'date-fns';
 import { useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
-import { api } from '../lib/api';
+import { api, ApiError } from '../lib/api';
 import { prefetchGame, useMe, useGames } from '../lib/queries';
 import { DEFAULT_SORT, nextSort, sortGames, type Sort, type SortKey } from '../lib/sessionSort';
 import { useShortcuts } from '../lib/shortcuts';
 import { joinErrorMessage } from './Landing';
+
+/** A create that failed is the one thing this screen cannot swallow: the
+ * button looks dead otherwise, and the host has no idea whether a game
+ * exists. Say what went wrong; the typed name stays in the field. */
+export function createErrorMessage(e: unknown): string {
+  if (e instanceof ApiError) {
+    if (e.code === 'guest_not_permitted') return 'Guests cannot host — sign in to create a game.';
+    if (e.status >= 500) return 'The server could not create the game — try again.';
+  }
+  return "Couldn't create the game — try again.";
+}
 
 const STATE_LABELS: Record<string, string> = {
   draft: 'draft',
@@ -142,14 +153,15 @@ export function Sessions() {
           </div>
           {openTable.isError && (
             <p role="alert" className="mt-3 text-xs text-rose-400">
-              Couldn't open the table — try again.
+              {createErrorMessage(openTable.error)}
             </p>
           )}
           <button
             type="submit"
-            className="mt-4 h-12 w-full rounded-full bg-emerald-600 text-[15px] font-bold text-white hover:brightness-105"
+            disabled={openTable.isPending}
+            className="mt-4 h-12 w-full rounded-full bg-emerald-600 text-[15px] font-bold text-white hover:brightness-105 disabled:opacity-60"
           >
-            Open the table
+            {openTable.isPending ? 'Opening…' : 'Open the table'}
           </button>
           <p className="mt-3 text-xs text-felt-600">
             Players are seated as they join. Nothing else to set up.
@@ -229,7 +241,7 @@ export function Sessions() {
               className="mt-3 space-y-3"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (name.trim()) createMutation.mutate();
+                if (name.trim() && !createMutation.isPending) createMutation.mutate();
               }}
             >
               <input
@@ -243,11 +255,17 @@ export function Sessions() {
                 Currency: {me?.default_currency ?? 'GBP'} (your default — changeable until the
                 first entry is logged)
               </p>
+              {createMutation.isError && (
+                <p role="alert" className="text-sm text-rose-700">
+                  {createErrorMessage(createMutation.error)}
+                </p>
+              )}
               <button
                 type="submit"
-                className="w-full rounded bg-neutral-900 px-3 py-2 text-sm font-medium text-white"
+                disabled={createMutation.isPending}
+                className="w-full rounded bg-neutral-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
               >
-                Create
+                {createMutation.isPending ? 'Creating…' : 'Create'}
               </button>
             </form>
           </Dialog.Content>
