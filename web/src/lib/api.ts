@@ -119,8 +119,8 @@ export const api = {
   settlement: (id: string) => request<Settlement>('GET', `/api/games/${id}/settlement`),
   gamePayoutDetails: (id: string) =>
     request<PayoutDetailsMasked[]>('GET', `/api/games/${id}/payout-details`),
-  transferHost: (id: string, user_id: string) =>
-    request<Game>('POST', `/api/games/${id}/transfer-host`, { user_id }),
+  transferHost: (id: string, user_id: string, if_version?: number) =>
+    request<Game>('POST', `/api/games/${id}/transfer-host`, { user_id, if_version }),
 
   logEntry: (
     gameId: string,

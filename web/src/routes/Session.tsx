@@ -16,6 +16,7 @@ import { useParams } from 'react-router-dom';
 import { Amount } from '../components/Amount';
 import { BlindsControl } from '../components/BlindsControl';
 import { AddPlayer } from '../components/AddPlayer';
+import { TransferHost } from '../components/TransferHost';
 import { EntryForm, type EntryDraft } from '../components/EntryForm';
 import { EntryLog } from '../components/EntryLog';
 import { LedgerTable } from '../components/LedgerTable';
@@ -107,6 +108,7 @@ export function Session() {
   const isHost = !!game && game.host_id === meId;
   const [entryFormOpen, setEntryFormOpen] = useState(false);
   const [addPlayerOpen, setAddPlayerOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
   const [entryDefaults, setEntryDefaults] = useState<{
     type: EntryType;
     userId?: string;
@@ -364,6 +366,24 @@ export function Session() {
     onSettled: () => reconcile(),
   });
 
+  /** Handing over is never optimistic either: it decides who may verify, and
+   * a client that guessed wrong would show verification controls to someone
+   * the server has already demoted. */
+  const transferHost = useMutation({
+    mutationKey: ['game', id, 'write'],
+    mutationFn: (userId: string) =>
+      serialize(`game:${id}:roster`, () =>
+        api.transferHost(id!, userId, queryClient.getQueryData<Game>(['game', id])?.version),
+      ),
+    onSuccess: (next) => {
+      queryClient.setQueryData<Game>(['game', id], next);
+      const name =
+        next.members.find((m) => m.user_id === next.host_id)?.display_name ?? 'someone else';
+      setNotice({ text: `${name} is the host now — you're a player at this table.` });
+    },
+    onSettled: () => reconcile(),
+  });
+
   // Close is the one write that is NOT optimistic: it writes the settlement
   // snapshot people hand over cash against, so the screen shows the server's
   // answer and nothing sooner.
@@ -474,6 +494,15 @@ export function Session() {
             disabledReason={
               shown.state === 'draft' ? 'Open the table first — a draft seats nobody' : undefined
             }
+          />
+        )}
+        {isHost && shown.state !== 'closed' && shown.state !== 'abandoned' && (
+          <TransferHost
+            open={transferOpen}
+            onOpenChange={setTransferOpen}
+            members={shown.members}
+            hostId={shown.host_id}
+            onTransfer={(userId) => transferHost.mutateAsync(userId)}
           />
         )}
         <BlindsControl
