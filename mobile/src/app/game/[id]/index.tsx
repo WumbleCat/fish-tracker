@@ -12,6 +12,7 @@ import { Text } from '../../../components/Text';
 import { AmountText } from '../../../components/AmountText';
 import { BlindsRow } from '../../../components/BlindsRow';
 import { EntrySheetContent } from '../../../components/EntrySheetContent';
+import { HandOverHost } from '../../../components/HandOverHost';
 import { NetList } from '../../../components/NetList';
 import { OfflineBanner } from '../../../components/OfflineBanner';
 import { api } from '../../../lib/api';
@@ -49,6 +50,9 @@ export default function GameScreen() {
   const [addName, setAddName] = useState('');
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+  const [handOverOpen, setHandOverOpen] = useState(false);
+  const [handingOver, setHandingOver] = useState(false);
+  const [handOverError, setHandOverError] = useState<string | null>(null);
   const sheetRef = useRef<BottomSheet>(null);
   const snapPoints = useMemo(() => ['85%'], []);
 
@@ -141,6 +145,33 @@ export default function GameScreen() {
       setAdding(false);
     }
   }, [addName, adding, id, invalidate]);
+
+  const handOverHost = useCallback(
+    async (userId: string) => {
+      if (handingOver) return;
+      setHandingOver(true);
+      setHandOverError(null);
+      try {
+        await api.transferHost(id!, userId, game?.version);
+        setHandOverOpen(false);
+        invalidate();
+      } catch (e: unknown) {
+        const code = (e as { code?: string }).code;
+        setHandOverError(
+          code === 'guest_not_permitted'
+            ? 'Guests can never host — pick a signed-in player.'
+            : code === 'user_not_found'
+              ? 'That player is no longer at the table.'
+              : code === 'version_conflict'
+                ? 'The game changed while this was open — check it and try again.'
+                : "Couldn't hand over the game — try again.",
+        );
+      } finally {
+        setHandingOver(false);
+      }
+    },
+    [handingOver, id, game?.version, invalidate],
+  );
 
   if (!game) {
     return (
@@ -244,6 +275,21 @@ export default function GameScreen() {
             >
               <Text style={{ color: online ? '#34d399' : '#5d6f66' }}>
                 + Add player{online ? '' : ' (offline)'}
+              </Text>
+            </Pressable>
+          )}
+          {isHost && game.state !== 'closed' && game.state !== 'abandoned' && (
+            <Pressable
+              testID="hand-over-host"
+              onPress={() => {
+                setHandOverError(null);
+                setHandOverOpen(true);
+              }}
+              disabled={!online}
+              style={{ minHeight: 44, justifyContent: 'center' }}
+            >
+              <Text style={{ color: online ? '#9fb0a8' : '#5d6f66' }}>
+                Hand over host{online ? '' : ' (offline)'}
               </Text>
             </Pressable>
           )}
@@ -358,6 +404,16 @@ export default function GameScreen() {
           />
         </BottomSheetView>
       </BottomSheet>
+
+      <HandOverHost
+        visible={handOverOpen}
+        members={game.members}
+        hostId={game.host_id}
+        pending={handingOver}
+        error={handOverError}
+        onCancel={() => setHandOverOpen(false)}
+        onTransfer={handOverHost}
+      />
 
       {/* Seating a player is a host action, so it lives behind a deliberate
           tap and never near the entry button. */}

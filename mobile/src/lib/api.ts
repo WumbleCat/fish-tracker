@@ -98,6 +98,10 @@ export const api = {
    * server-issued identity, not an append-only entry. */
   addPlayer: (gameId: string, display_name: string) =>
     request<Game>('POST', `/api/games/${gameId}/members`, { display_name }),
+  /** Hand the game to another registered player. Never queued offline: it
+   * decides who may verify, and that cannot be guessed locally. */
+  transferHost: (gameId: string, user_id: string, if_version?: number) =>
+    request<Game>('POST', `/api/games/${gameId}/transfer-host`, { user_id, if_version }),
   /** Host only. The change is recorded as a game event server-side. */
   setBlinds: (
     id: string,
