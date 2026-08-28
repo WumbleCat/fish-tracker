@@ -93,6 +93,11 @@ export const api = {
     big_blind_minor?: number | null;
   }) => request<Game>('POST', '/api/games', body),
   joinGame: (join_code: string) => request<Game>('POST', '/api/games/join', { join_code }),
+  /** The host seats someone who is not using the app; the whole game comes
+   * back because the roster just changed. Never queued offline — the row is a
+   * server-issued identity, not an append-only entry. */
+  addPlayer: (gameId: string, display_name: string) =>
+    request<Game>('POST', `/api/games/${gameId}/members`, { display_name }),
   /** Host only. The change is recorded as a game event server-side. */
   setBlinds: (
     id: string,

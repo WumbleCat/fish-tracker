@@ -65,6 +65,13 @@ class JoinRequest(BaseModel):
     join_code: str = Field(min_length=6, max_length=6)
 
 
+class AddPlayerRequest(BaseModel):
+    """A name is the whole payload. The host is seating someone who is not
+    using the app; there is nothing else to know about them."""
+
+    display_name: str = Field(min_length=1, max_length=60)
+
+
 class StateChangeRequest(BaseModel):
     to: GameState
     if_version: int | None = None

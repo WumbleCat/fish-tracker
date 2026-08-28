@@ -6,7 +6,7 @@ import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Modal, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { Text } from '../../../components/Text';
 
 import { AmountText } from '../../../components/AmountText';
@@ -42,10 +42,23 @@ export default function GameScreen() {
   const online = useOnline((s) => s.online);
   const { enqueue, flush, entries: queued } = useEntryQueue();
   const [lastAmount, setLastAmount] = useState<number | null>(null);
+  // who the sheet opens for: null is "me", a user id is the host logging on
+  // a seated player's behalf
+  const [sheetTarget, setSheetTarget] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addName, setAddName] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
   const sheetRef = useRef<BottomSheet>(null);
   const snapPoints = useMemo(() => ['85%'], []);
 
   const isHost = !!game && !!meId && game.host_id === meId;
+  const seated = useMemo(
+    () => (game?.members ?? []).filter((m) => !m.departed_at),
+    [game],
+  );
+  const seatedIdsRef = useRef<string[]>([]);
+  seatedIdsRef.current = seated.map((m) => m.user_id);
   const pendingCount = game?.totals.pending_count ?? 0;
   const myQueued = queued.filter((q) => q.gameId === id);
 
@@ -55,14 +68,23 @@ export default function GameScreen() {
   }, [queryClient, id]);
 
   const logEntry = useCallback(
-    async (entryType: EntryType, amountMinor: number) => {
+    async (entryType: EntryType, amountMinor: number, targetUserId: string | null = null) => {
       sheetRef.current?.close();
       setLastAmount(amountMinor);
       const clientKey = newClientKey();
       confirmHaptic();
+      // an entry logged for someone else is still append-only, so it queues
+      // offline exactly like your own
+      const queued = {
+        clientKey,
+        gameId: id!,
+        entryType,
+        amountMinor,
+        ...(targetUserId ? { targetUserId } : {}),
+      };
       if (!online) {
         // held locally in a distinct "not sent" state and flushed on reconnect
-        enqueue({ clientKey, gameId: id!, entryType, amountMinor });
+        enqueue(queued);
         return;
       }
       try {
@@ -70,6 +92,7 @@ export default function GameScreen() {
           entry_type: entryType,
           amount_minor: amountMinor,
           client_key: clientKey,
+          ...(targetUserId ? { user_id: targetUserId } : {}),
         });
         invalidate();
       } catch (e: unknown) {
@@ -79,13 +102,45 @@ export default function GameScreen() {
         } else {
           // network blinked mid-request: queue it; the client key makes the
           // replay safe even if the first attempt actually landed
-          enqueue({ clientKey, gameId: id!, entryType, amountMinor });
+          enqueue(queued);
           void flush(sendQueuedEntry);
         }
       }
     },
     [online, id, enqueue, flush, invalidate],
   );
+
+  const seatPlayer = useCallback(async () => {
+    const name = addName.trim();
+    if (!name || adding) return;
+    setAdding(true);
+    setAddError(null);
+    try {
+      const next = await api.addPlayer(id!, name);
+      const seatedBefore = new Set(seatedIdsRef.current);
+      const added = next.members.find((m) => !seatedBefore.has(m.user_id));
+      setAddOpen(false);
+      setAddName('');
+      invalidate();
+      // the host seated them in order to log for them: open the sheet with
+      // the new player already chosen
+      if (added) {
+        setSheetTarget(added.user_id);
+        sheetRef.current?.expand();
+      }
+    } catch (e: unknown) {
+      const code = (e as { code?: string }).code;
+      setAddError(
+        code === 'table_full'
+          ? 'That table is full — every seat is taken.'
+          : code === 'game_not_joinable'
+            ? "This game isn't seating players right now."
+            : "Couldn't add the player — try again.",
+      );
+    } finally {
+      setAdding(false);
+    }
+  }, [addName, adding, id, invalidate]);
 
   if (!game) {
     return (
@@ -174,6 +229,21 @@ export default function GameScreen() {
             >
               <Text style={{ color: '#34d399' }}>
                 Verify queue{pendingCount ? ` (${pendingCount})` : ''} →
+              </Text>
+            </Pressable>
+          )}
+          {isHost && (game.state === 'open' || game.state === 'running') && (
+            <Pressable
+              testID="add-player"
+              onPress={() => {
+                setAddError(null);
+                setAddOpen(true);
+              }}
+              disabled={!online}
+              style={{ minHeight: 44, justifyContent: 'center' }}
+            >
+              <Text style={{ color: online ? '#34d399' : '#5d6f66' }}>
+                + Add player{online ? '' : ' (offline)'}
               </Text>
             </Pressable>
           )}
@@ -267,16 +337,93 @@ export default function GameScreen() {
       >
         <BottomSheetView>
           <EntrySheetContent
+            // remounted when the target changes, so the sheet opens on the
+            // player the host just seated rather than on whoever was last
+            key={sheetTarget ?? 'me'}
             currency={currency}
             exponent={exponent}
             stakeMinor={game.stake_minor}
             lastAmountMinor={lastAmount}
             defaultType={game.state === 'settling' ? 'cash_out' : 'rebuy'}
             allowedTypes={game.state === 'settling' ? ['cash_out'] : ['buy_in', 'rebuy', 'cash_out']}
+            seatFor={
+              isHost
+                ? seated
+                    .filter((m) => m.user_id !== meId)
+                    .map((m) => ({ userId: m.user_id, name: m.display_name }))
+                : []
+            }
+            defaultTargetUserId={sheetTarget}
             onSubmit={logEntry}
           />
         </BottomSheetView>
       </BottomSheet>
+
+      {/* Seating a player is a host action, so it lives behind a deliberate
+          tap and never near the entry button. */}
+      <Modal visible={addOpen} transparent animationType="fade" onRequestClose={() => setAddOpen(false)}>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            justifyContent: 'center',
+            padding: 24,
+          }}
+        >
+          <View style={{ backgroundColor: '#111a16', borderRadius: 16, padding: 20, gap: 12 }}>
+            <Text style={{ color: '#e7ece9', fontSize: 18, fontWeight: '800' }}>Add a player</Text>
+            <Text style={{ color: '#9fb0a8', fontSize: 13 }}>
+              For someone at the table who isn't using the app. You log their buy-ins and
+              cash-outs; they can't log their own.
+            </Text>
+            <TextInput
+              testID="add-player-name"
+              value={addName}
+              onChangeText={setAddName}
+              placeholder="Name at the table"
+              placeholderTextColor="#5d6f66"
+              maxLength={60}
+              autoFocus
+              style={{
+                minHeight: 48,
+                borderRadius: 12,
+                backgroundColor: '#1a2620',
+                paddingHorizontal: 14,
+                color: '#e7ece9',
+                fontSize: 16,
+              }}
+            />
+            {addError && (
+              <Text testID="add-player-error" style={{ color: '#fb7185' }}>
+                {addError}
+              </Text>
+            )}
+            <Pressable
+              testID="add-player-confirm"
+              onPress={seatPlayer}
+              disabled={adding}
+              style={{
+                height: 56,
+                borderRadius: 14,
+                backgroundColor: '#059669',
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: adding ? 0.6 : 1,
+              }}
+            >
+              <Text style={{ color: '#fff', fontSize: 17, fontWeight: '800' }}>
+                {adding ? 'Seating…' : 'Seat them'}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setAddOpen(false)}
+              style={{ minHeight: 44, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Text style={{ color: '#9fb0a8' }}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

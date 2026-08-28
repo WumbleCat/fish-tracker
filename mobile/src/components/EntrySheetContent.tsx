@@ -3,10 +3,15 @@
  *
  * Cash-out uses the same sheet but the amount must be typed in full — no
  * default, no chips. That number decides what people get paid; a pre-filled
- * cash-out is an invitation to accept a wrong one. */
+ * cash-out is an invitation to accept a wrong one.
+ *
+ * The host also logs for players who are not using the app (app-logic,
+ * 2026-08-28). That is one row of chips at the top, "Me" already chosen, so
+ * the common case is still open → confirm. Nobody else sees the row: a
+ * player can only ever log their own. */
 
 import { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { Text } from './Text';
 
 import { fmtMinor, parseToMinor, toDecimalString } from '../lib/money';
@@ -26,6 +31,8 @@ export function EntrySheetContent({
   lastAmountMinor,
   defaultType = 'rebuy',
   allowedTypes = ['buy_in', 'rebuy', 'cash_out'],
+  seatFor = [],
+  defaultTargetUserId = null,
   onSubmit,
 }: {
   currency: string;
@@ -34,9 +41,16 @@ export function EntrySheetContent({
   lastAmountMinor: number | null;
   defaultType?: EntryType;
   allowedTypes?: EntryType[];
-  onSubmit: (entryType: EntryType, amountMinor: number) => void;
+  /** Other seated players this person may log for — host only, empty for
+   * everyone else. */
+  seatFor?: { userId: string; name: string }[];
+  defaultTargetUserId?: string | null;
+  /** targetUserId is null when the entry is the logger's own. */
+  onSubmit: (entryType: EntryType, amountMinor: number, targetUserId: string | null) => void;
 }) {
   const [entryType, setEntryType] = useState<EntryType>(defaultType);
+  const [target, setTarget] = useState<string | null>(defaultTargetUserId);
+  const targetName = seatFor.find((p) => p.userId === target)?.name ?? null;
   const isCashOut = entryType === 'cash_out';
   // The stake pre-fills buy-in/rebuy; a cash-out always starts empty.
   const [typed, setTyped] = useState<string>(
@@ -70,11 +84,39 @@ export function EntrySheetContent({
       );
       return;
     }
-    onSubmit(entryType, minor);
+    onSubmit(entryType, minor, target);
   };
 
   return (
     <View testID="entry-sheet" style={{ padding: 16, gap: 14 }}>
+      {seatFor.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 8, paddingRight: 8 }}
+        >
+          {[{ userId: null as string | null, name: 'Me' }, ...seatFor].map((p) => (
+            <Pressable
+              key={p.userId ?? 'me'}
+              testID={`for-${p.userId ?? 'me'}`}
+              onPress={() => setTarget(p.userId)}
+              style={{
+                minHeight: 44,
+                paddingHorizontal: 14,
+                borderRadius: 22,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: target === p.userId ? '#059669' : '#1a2620',
+              }}
+            >
+              <Text style={{ color: '#e7ece9', fontWeight: '600' }}>
+                {p.userId === null ? 'Me' : `for ${p.name}`}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      )}
+
       <View style={{ flexDirection: 'row', gap: 8 }}>
         {TYPES.filter((t) => allowedTypes.includes(t.value)).map((t) => (
           <Pressable
@@ -167,6 +209,7 @@ export function EntrySheetContent({
       >
         <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800' }}>
           Log {TYPES.find((t) => t.value === entryType)?.label.toLowerCase()}
+          {targetName ? ` for ${targetName}` : ''}
         </Text>
       </Pressable>
     </View>

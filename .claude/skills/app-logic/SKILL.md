@@ -44,6 +44,18 @@ Guests exist because the person who turns up once and pays cash should not have 
 
 A guest is a real row in the ledger with a real position; the only thing they lack is an identity that outlives the game. A guest may **claim** their record later by signing up and following the game's claim link — this merges the guest row into the new account and backfills their history. Merging is one-directional and irreversible: never let a claim reassign entries to a different person than the one who logged them.
 
+### Host-added players (decided 2026-08-28)
+
+Not everyone at the table will open the app. Someone's dad is playing, someone's phone is dead, someone simply doesn't want to. The host may therefore **seat a player by display name alone** — no code entered, no device involved, no account.
+
+- The row is a **guest-kind identity**: scoped to this game, no lifetime history, no payout details, never a host. It occupies a seat like anyone else and blocks close on unresolved entries like anyone else.
+- **No credential is ever minted for it.** A joining guest gets a token; a host-added player gets nothing to log in with, which is precisely what makes the row host-managed — the app is not enforcing a rule so much as declining to hand out a key. There is therefore no claim path either: claiming requires the guest token that this row does not have. Someone who wants their own history joins with the code instead, as themselves.
+- **The host logs their entries for them**, which the ledger already supports: the entry belongs to the player, the action to whoever performed it (`logged_by`). Every such entry is visibly logged by the host.
+- **Those entries are pending like every other claim.** The host logging a buy-in and the host verifying it are two acts, recorded separately, exactly as when the host logs their own. Never auto-verify a host-added player's entry because the host typed it — that reasoning applies equally to the host's own entries, and the rule there is already no.
+- A host-added player can be removed from the table like any member, and their entries stay in the ledger like any entries.
+
+Two people can share a display name; the app does not refuse it. A table with two Daves is the host's problem to name, not a state worth making unrepresentable.
+
 Guests never get host powers, including via host transfer. A game whose host has left and whose remaining players are all guests cannot be closed by the app — flag that rather than inventing a guest-promotion path.
 
 ## Roles
@@ -206,7 +218,7 @@ Rules that are not negotiable:
 
 Joining uses a short human-readable code or a link — people are in a room together, so anything requiring account lookup is worse than reading six characters aloud. Guests use the same code and add only a display name.
 
-A player joining mid-game is normal, not an edge case. They join at `running`, and their first buy-in behaves like any other.
+A player joining mid-game is normal, not an edge case. They join at `running`, and their first buy-in behaves like any other. The host may also seat someone who is not using the app at all — see **Host-added players**.
 
 **A table seats at most eleven** (decided 2026-08-26, superseding the nine of 2026-08-24) — the host included, since the host plays. A join that would make a twelfth active member is refused with `table_full`; it is a normal condition, phrased as "that table is full", never a fault. The limit is a single fixed number for every game: a per-game seat count was considered and not taken, so nothing reads a capacity off the game row. A player who has left (`departed_at` set) no longer occupies a seat, so a seat frees when someone leaves and is taken again if they rejoin. The count is of people at the table, not of entries — a departed-unsettled player still holds no seat, though their unresolved entries still block close.
 
@@ -234,6 +246,7 @@ Enforce on the server. Client-side checks are a UX affordance, not a control.
 - Void: host only, verified entries only, reason required
 - Amend: the entry's owner, rejected entries only
 - Admit / remove player: host only
+- Seat a player by name (no code, no device): host only, game `open` or `running`, seat available
 - Set or change currency: host only, and only while the game holds zero entries
 - Set or change blinds: host only, any state except `closed` and `abandoned`; each change writes a game event
 - Edit own payout details: the owning registered user only
