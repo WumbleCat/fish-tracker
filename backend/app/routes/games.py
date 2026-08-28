@@ -7,6 +7,7 @@ from app.deps import CurrentPrincipal, DbSession
 from app.models import Game
 from app.schemas.entries import EntryCreate, EntryOut
 from app.schemas.games import (
+    AddPlayerRequest,
     BlindsChangeRequest,
     CurrencyChangeRequest,
     GameCreate,
@@ -149,6 +150,20 @@ def transfer_host(
 @router.post("/{game_id}/leave", response_model=GameOut)
 def leave_game(game_id: uuid.UUID, session: DbSession, principal: CurrentPrincipal):
     games_service.leave_game(session, principal, game_id)
+    game = session.get(Game, game_id)
+    return _game_out(session, game)
+
+
+@router.post("/{game_id}/members", response_model=GameOut, status_code=201)
+def add_player(
+    game_id: uuid.UUID,
+    body: AddPlayerRequest,
+    session: DbSession,
+    principal: CurrentPrincipal,
+):
+    """The host seats someone who is not using the app. The whole game comes
+    back, because the roster the client is about to log against has changed."""
+    games_service.add_player(session, principal, game_id, body.display_name)
     game = session.get(Game, game_id)
     return _game_out(session, game)
 

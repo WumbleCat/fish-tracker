@@ -15,6 +15,7 @@ import { useParams } from 'react-router-dom';
 
 import { Amount } from '../components/Amount';
 import { BlindsControl } from '../components/BlindsControl';
+import { AddPlayer } from '../components/AddPlayer';
 import { EntryForm, type EntryDraft } from '../components/EntryForm';
 import { EntryLog } from '../components/EntryLog';
 import { LedgerTable } from '../components/LedgerTable';
@@ -105,6 +106,7 @@ export function Session() {
 
   const isHost = !!game && game.host_id === meId;
   const [entryFormOpen, setEntryFormOpen] = useState(false);
+  const [addPlayerOpen, setAddPlayerOpen] = useState(false);
   const [entryDefaults, setEntryDefaults] = useState<{
     type: EntryType;
     userId?: string;
@@ -336,6 +338,32 @@ export function Session() {
     onSettled: () => reconcile(),
   });
 
+  /** Seating a player is never optimistic: the row is a server-issued
+   * identity, and the host is about to log money against it. Nothing appears
+   * at the table until the API says who they are. */
+  const addPlayer = useMutation({
+    mutationKey: ['game', id, 'write'],
+    mutationFn: (displayName: string) =>
+      serialize(`game:${id}:roster`, () => api.addPlayer(id!, displayName)),
+    onMutate: () => ({
+      seatedBefore: new Set(
+        (queryClient.getQueryData<Game>(['game', id])?.members ?? []).map((m) => m.user_id),
+      ),
+    }),
+    onSuccess: (next, _displayName, ctx) => {
+      queryClient.setQueryData<Game>(['game', id], next);
+      // the host seated them in order to log for them — go straight there,
+      // with the new player already selected in the form
+      const added = next.members.find((m) => !ctx?.seatedBefore.has(m.user_id));
+      if (added && next.state === 'running') openEntryForm('buy_in', added.user_id);
+    },
+    onError: () => {
+      // the dialog keeps the typed name and says what happened; nothing on
+      // the table changed, so there is nothing to roll back
+    },
+    onSettled: () => reconcile(),
+  });
+
   // Close is the one write that is NOT optimistic: it writes the settlement
   // snapshot people hand over cash against, so the screen shows the server's
   // answer and nothing sooner.
@@ -370,6 +398,13 @@ export function Session() {
     [openEntryForm, selectedUserId],
   );
   useShortcuts(shortcuts, !!game && (game.state === 'running' || game.state === 'settling'));
+  // seating runs on its own enable rule: a table fills up while the game is
+  // still `open`, where n/r/c would be logging money the API refuses
+  const hostShortcuts = useMemo(() => ({ p: () => setAddPlayerOpen(true) }), []);
+  useShortcuts(
+    hostShortcuts,
+    isHost && !!game && (game.state === 'open' || game.state === 'running'),
+  );
 
   if (gameError instanceof ApiError && gameError.code === 'game_not_found') {
     return <p className="mt-16 text-center text-neutral-500">No such game, or you're not in it.</p>;
@@ -431,6 +466,16 @@ export function Session() {
         >
           {seated}/{MAX_SEATS} seats
         </span>
+        {isHost && (shown.state === 'draft' || shown.state === 'open' || shown.state === 'running') && (
+          <AddPlayer
+            open={addPlayerOpen}
+            onOpenChange={setAddPlayerOpen}
+            onAdd={(displayName) => addPlayer.mutateAsync(displayName)}
+            disabledReason={
+              shown.state === 'draft' ? 'Open the table first — a draft seats nobody' : undefined
+            }
+          />
+        )}
         <BlindsControl
           smallMinor={shown.small_blind_minor}
           bigMinor={shown.big_blind_minor}

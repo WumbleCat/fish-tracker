@@ -105,6 +105,10 @@ export const api = {
       big_blind_minor,
       if_version,
     }),
+  /** The host seats someone who is not using the app. The whole game comes
+   * back: the roster the client is about to log against has changed. */
+  addPlayer: (gameId: string, display_name: string) =>
+    request<Game>('POST', `/api/games/${gameId}/members`, { display_name }),
   changeState: (id: string, to: GameState, if_version?: number) =>
     request<Game>('POST', `/api/games/${id}/state`, { to, if_version }),
   close: (id: string, acknowledge_discrepancy: boolean, if_version?: number) =>

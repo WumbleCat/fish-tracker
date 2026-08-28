@@ -168,6 +168,32 @@ def join_game(session: Session, principal: Principal, join_code: str) -> Game:
     return game
 
 
+def add_player(
+    session: Session, principal: Principal, game_id: uuid.UUID, display_name: str
+) -> User:
+    """Seat someone who is not using the app (app-logic, 2026-08-28).
+
+    A guest-kind row with no token: the host logs its entries, and the
+    absence of a credential is what makes it host-managed. No token also
+    means no claim path — claiming needs the guest token this row will never
+    have — so unlike guest_join this does not require HS256 to be available.
+    """
+    game = load_member_game(session, principal, game_id, for_update=True)
+    require_host(session, principal, game)
+    if game.state not in (GameState.open, GameState.running):
+        raise AppError("game_not_joinable", 409, {"state": game.state.value})
+    require_seat(session, game.id)
+
+    player = User(display_name=display_name.strip(), is_guest=True)
+    session.add(player)
+    session.flush()
+    session.add(
+        GameMember(game_id=game.id, user_id=player.id, role=MemberRole.player)
+    )
+    session.flush()
+    return player
+
+
 def game_entries(session: Session, game_id: uuid.UUID) -> list[Entry]:
     return list(
         session.execute(

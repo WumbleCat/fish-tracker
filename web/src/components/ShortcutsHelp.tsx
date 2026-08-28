@@ -2,6 +2,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 
 const ROWS: [string, string][] = [
   ['n', 'New entry in current session'],
+  ['p', 'Add a player (host)'],
   ['r', 'Rebuy for selected player'],
   ['c', 'Cash out selected player'],
   ['v', 'Verify selected entry (host)'],

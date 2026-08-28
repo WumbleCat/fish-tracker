@@ -39,6 +39,16 @@ def guest_join(client, join_code, display_name):
     return resp.json()
 
 
+def add_player(client, host, game_id, display_name, expect=201):
+    resp = client.post(
+        f"/api/games/{game_id}/members",
+        json={"display_name": display_name},
+        headers=auth(host),
+    )
+    assert resp.status_code == expect, resp.text
+    return resp.json()
+
+
 def log_entry(client, user, game_id, entry_type, amount_minor, target_user_id=None, expect=201):
     body = {"entry_type": entry_type, "amount_minor": amount_minor}
     if target_user_id:

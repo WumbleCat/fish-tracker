@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 export type ShortcutMap = Partial<
   Record<
     | 'n'
+    | 'p'
     | 'r'
     | 'c'
     | 'v'
