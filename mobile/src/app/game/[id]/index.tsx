@@ -14,6 +14,7 @@ import { BlindsRow } from '../../../components/BlindsRow';
 import { EntrySheetContent } from '../../../components/EntrySheetContent';
 import { HandOverHost } from '../../../components/HandOverHost';
 import { NetList } from '../../../components/NetList';
+import { RemovePlayer } from '../../../components/RemovePlayer';
 import { OfflineBanner } from '../../../components/OfflineBanner';
 import { api } from '../../../lib/api';
 import { useAuth } from '../../../lib/auth';
@@ -53,6 +54,9 @@ export default function GameScreen() {
   const [handOverOpen, setHandOverOpen] = useState(false);
   const [handingOver, setHandingOver] = useState(false);
   const [handOverError, setHandOverError] = useState<string | null>(null);
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
   const sheetRef = useRef<BottomSheet>(null);
   const snapPoints = useMemo(() => ['85%'], []);
 
@@ -171,6 +175,35 @@ export default function GameScreen() {
       }
     },
     [handingOver, id, game?.version, invalidate],
+  );
+
+  const removeMember = useCallback(
+    async (userId: string) => {
+      if (removing) return;
+      setRemoving(true);
+      setRemoveError(null);
+      try {
+        await api.removeMember(id!, userId, game?.version);
+        setRemoveOpen(false);
+        invalidate();
+      } catch (e: unknown) {
+        const code = (e as { code?: string }).code;
+        setRemoveError(
+          code === 'host_must_transfer_first'
+            ? 'You can’t remove yourself while you hold the game — hand it over first.'
+            : code === 'user_not_found'
+              ? 'They’re not at this table.'
+              : code === 'game_closed'
+                ? 'This game is finished — its roster doesn’t change any more.'
+                : code === 'version_conflict'
+                  ? 'The table changed while this was open — check it and try again.'
+                  : "Couldn't remove them — try again.",
+        );
+      } finally {
+        setRemoving(false);
+      }
+    },
+    [removing, id, game?.version, invalidate],
   );
 
   if (!game) {
@@ -293,6 +326,21 @@ export default function GameScreen() {
               </Text>
             </Pressable>
           )}
+          {isHost && game.state !== 'closed' && game.state !== 'abandoned' && (
+            <Pressable
+              testID="remove-player"
+              onPress={() => {
+                setRemoveError(null);
+                setRemoveOpen(true);
+              }}
+              disabled={!online}
+              style={{ minHeight: 44, justifyContent: 'center' }}
+            >
+              <Text style={{ color: online ? '#9fb0a8' : '#5d6f66' }}>
+                Remove player{online ? '' : ' (offline)'}
+              </Text>
+            </Pressable>
+          )}
           <Pressable
             testID="entries-link"
             onPress={() => router.push(`/game/${id}/entries`)}
@@ -404,6 +452,17 @@ export default function GameScreen() {
           />
         </BottomSheetView>
       </BottomSheet>
+
+      <RemovePlayer
+        visible={removeOpen}
+        members={game.members}
+        hostId={game.host_id}
+        entries={game.entries}
+        pending={removing}
+        error={removeError}
+        onCancel={() => setRemoveOpen(false)}
+        onRemove={removeMember}
+      />
 
       <HandOverHost
         visible={handOverOpen}

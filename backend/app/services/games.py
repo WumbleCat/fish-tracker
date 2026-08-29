@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.errors import (
     AppError,
+    game_closed,
     invalid_state_transition,
     not_found,
     not_host,
@@ -359,14 +360,32 @@ def remove_member(
     principal: Principal,
     game_id: uuid.UUID,
     user_id: uuid.UUID,
+    if_version: int | None = None,
 ) -> GameMember:
+    """The host takes someone off the table (app-logic: "Admit / remove
+    player: host only").
+
+    Removal is `leave_game` performed by the host, and it is deliberately not
+    a deletion: the member row stays, their entries stay, and an unresolved
+    position still marks them `departed_unsettled` and still blocks close.
+    Removing somebody is about the seat, never about the ledger.
+    """
     game = load_member_game(session, principal, game_id, for_update=True)
     require_host(session, principal, game)
+    _check_game_version(game, if_version)
+    if game.state in (GameState.closed, GameState.abandoned):
+        # A finished game's roster is history like everything else in it.
+        raise game_closed()
     if user_id == game.host_id:
         raise AppError("host_must_transfer_first", 409)
     member = session.get(GameMember, (game_id, user_id))
     if member is None:
         raise not_found("user")
+    if member.departed_at is not None:
+        # Already gone. Re-stamping would rewrite when they left and could
+        # flip departed_unsettled long after the fact, so this is a no-op —
+        # the same answer re-seating an already-seated member gives.
+        return member
     entries = game_entries(session, game_id)
     settled = _position_settled(entries, user_id)
     member.departed_at = datetime.now(timezone.utc)

@@ -102,6 +102,11 @@ export const api = {
    * decides who may verify, and that cannot be guessed locally. */
   transferHost: (gameId: string, user_id: string, if_version?: number) =>
     request<Game>('POST', `/api/games/${gameId}/transfer-host`, { user_id, if_version }),
+  /** The host takes someone off the table. Their entries and their net stay
+   * in the ledger — this frees a seat, it does not settle anything. Never
+   * queued offline: it depends on server state that may have moved. */
+  removeMember: (gameId: string, user_id: string, if_version?: number) =>
+    request<Game>('POST', `/api/games/${gameId}/members/${user_id}/remove`, { if_version }),
   /** Host only. The change is recorded as a game event server-side. */
   setBlinds: (
     id: string,

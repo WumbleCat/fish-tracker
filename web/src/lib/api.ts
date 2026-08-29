@@ -121,6 +121,11 @@ export const api = {
     request<PayoutDetailsMasked[]>('GET', `/api/games/${id}/payout-details`),
   transferHost: (id: string, user_id: string, if_version?: number) =>
     request<Game>('POST', `/api/games/${id}/transfer-host`, { user_id, if_version }),
+  /** The host takes someone off the table. Their entries and their net stay
+   * in the ledger — this frees a seat, it does not settle anything. The whole
+   * game comes back because the roster changed. */
+  removeMember: (id: string, user_id: string, if_version?: number) =>
+    request<Game>('POST', `/api/games/${id}/members/${user_id}/remove`, { if_version }),
 
   logEntry: (
     gameId: string,

@@ -6,6 +6,7 @@ import {
   isReconciled,
   pendingEntries,
   reconciliationDiscrepancy,
+  tableTotal,
 } from './ledger';
 import type { Entry, EntryState, EntryType } from './types';
 
@@ -143,5 +144,112 @@ describe('pendingEntries', () => {
     const second = entry('bob', 'rebuy', 300, 'pending');
     const queue = pendingEntries([second, verified, first]);
     expect(queue.map((e) => e.id)).toEqual([first.id, second.id]);
+  });
+});
+
+function net(userId: string, settleableMinor: number, pendingDeltaMinor = 0) {
+  return {
+    user_id: userId,
+    settleable_minor: settleableMinor,
+    pending_delta_minor: pendingDeltaMinor,
+    pending_count: pendingDeltaMinor === 0 ? 0 : 1,
+  };
+}
+
+describe('tableTotal', () => {
+  it('reads a table mid-game as chips still out, not as a discrepancy', () => {
+    const entries = [
+      entry('alice', 'buy_in', 5000, 'verified'),
+      entry('bob', 'buy_in', 5000, 'verified'),
+    ];
+
+    const total = tableTotal([net('alice', -5000), net('bob', -5000)], entries);
+
+    expect(total.totalNetMinor).toBe(-10000);
+    expect(total.status).toBe('in-play');
+    expect(total.playersInPlayCount).toBe(2);
+  });
+
+  it('balances once everybody has a verified cash-out', () => {
+    const entries = [
+      entry('alice', 'buy_in', 5000, 'verified'),
+      entry('bob', 'buy_in', 5000, 'verified'),
+      entry('alice', 'cash_out', 8000, 'verified'),
+      entry('bob', 'cash_out', 2000, 'verified'),
+    ];
+
+    const total = tableTotal([net('alice', 3000), net('bob', -3000)], entries);
+
+    expect(total.totalNetMinor).toBe(0);
+    expect(total.status).toBe('balanced');
+  });
+
+  it('names a gap once nobody holds chips and the total still is not zero', () => {
+    const entries = [
+      entry('alice', 'buy_in', 5000, 'verified'),
+      entry('bob', 'buy_in', 5000, 'verified'),
+      entry('alice', 'cash_out', 8000, 'verified'),
+      entry('bob', 'cash_out', 1000, 'verified'),
+    ];
+
+    const total = tableTotal([net('alice', 3000), net('bob', -4000)], entries);
+
+    expect(total.totalNetMinor).toBe(-1000); // £10 short — someone left with a stack
+    expect(total.status).toBe('gap');
+  });
+
+  it('does not call a table balanced while chips are still out', () => {
+    // alice is still playing; bob's overpaid cash-out happens to cancel her
+    // buy-in. Zero here is a coincidence, not a reconciliation.
+    const entries = [
+      entry('alice', 'buy_in', 5000, 'verified'),
+      entry('bob', 'buy_in', 5000, 'verified'),
+      entry('bob', 'cash_out', 10000, 'verified'),
+    ];
+
+    const total = tableTotal([net('alice', -5000), net('bob', 5000)], entries);
+
+    expect(total.totalNetMinor).toBe(0);
+    expect(total.status).toBe('in-play');
+  });
+
+  it('counts a player who rebought after cashing out as back in play', () => {
+    const entries = [
+      entry('alice', 'buy_in', 5000, 'verified'),
+      entry('alice', 'cash_out', 6000, 'verified'),
+      entry('alice', 'rebuy', 5000, 'verified'),
+    ];
+
+    expect(tableTotal([net('alice', -4000)], entries).status).toBe('in-play');
+  });
+
+  it('keeps pending out of the total and beside it', () => {
+    const entries = [
+      entry('alice', 'buy_in', 5000, 'verified'),
+      entry('alice', 'cash_out', 5000, 'verified'),
+      entry('bob', 'buy_in', 4000, 'pending'),
+    ];
+
+    const total = tableTotal([net('alice', 0), net('bob', 0, -4000)], entries);
+
+    expect(total.totalNetMinor).toBe(0);
+    expect(total.totalPendingMinor).toBe(-4000);
+    expect(total.status).toBe('balanced'); // a claim is not a chip position
+  });
+
+  it('ignores rejected and void entries when deciding who holds chips', () => {
+    const entries = [
+      entry('alice', 'buy_in', 5000, 'verified'),
+      entry('alice', 'cash_out', 5000, 'verified'),
+      entry('alice', 'rebuy', 9999, 'rejected'),
+      entry('alice', 'rebuy', 9999, 'void'),
+    ];
+
+    expect(tableTotal([net('alice', 0)], entries).status).toBe('balanced');
+  });
+
+  it('reads an empty table as balanced', () => {
+    expect(tableTotal([], []).status).toBe('balanced');
+    expect(tableTotal([], []).totalNetMinor).toBe(0);
   });
 });

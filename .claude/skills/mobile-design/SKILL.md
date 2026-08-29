@@ -94,6 +94,7 @@ The game screen's main content is a per-player list: name, live net, and — sep
 - A player still in the game shows a negative net equal to their buy-ins. Don't blank it or dash it.
 - Subscribe to the game's entries via Supabase Realtime and use the event to invalidate the query cache; render what the refetch returns. Never compute a net from a Realtime payload — that's settlement logic in disguise.
 - Sort the list by net descending by default. People look at this to see who's up.
+- **The list is footed by a total** (added 2026-08-29): the live nets added up, with a line saying which of three things it means — chips still on the table while anyone's last verified entry isn't a cash-out, `✓ balances` at zero once everyone has cashed out, or `short`/`over` when it isn't, in the settle screen's own words. In-play is decided before zero; a zero total while chips are out has coincided, not balanced. Pending totals beside it, never inside it. Same derivation as desktop (`tableTotal` in `lib/ledger.ts`).
 
 ## Currency
 

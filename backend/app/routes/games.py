@@ -177,7 +177,7 @@ def remove_member(
     session: DbSession,
     principal: CurrentPrincipal,
 ):
-    games_service.remove_member(session, principal, game_id, user_id)
+    games_service.remove_member(session, principal, game_id, user_id, body.if_version)
     game = session.get(Game, game_id)
     return _game_out(session, game)
 

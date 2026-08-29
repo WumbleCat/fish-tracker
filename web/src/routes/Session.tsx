@@ -16,6 +16,7 @@ import { useParams } from 'react-router-dom';
 import { Amount } from '../components/Amount';
 import { BlindsControl } from '../components/BlindsControl';
 import { AddPlayer } from '../components/AddPlayer';
+import { RemovePlayer } from '../components/RemovePlayer';
 import { TransferHost } from '../components/TransferHost';
 import { EntryForm, type EntryDraft } from '../components/EntryForm';
 import { EntryLog } from '../components/EntryLog';
@@ -45,7 +46,7 @@ import {
 } from '../lib/queries';
 import { serialize } from '../lib/serialize';
 import { useShortcuts } from '../lib/shortcuts';
-import type { Entry, EntryType, Game, GameState, GameSummary } from '../lib/types';
+import type { Entry, EntryType, Game, GameState, GameSummary, Member } from '../lib/types';
 
 const NEXT_STATE: Partial<Record<GameState, { to: GameState; label: string }>> = {
   draft: { to: 'open', label: 'Open for joins' },
@@ -109,6 +110,9 @@ export function Session() {
   const [entryFormOpen, setEntryFormOpen] = useState(false);
   const [addPlayerOpen, setAddPlayerOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
+  // The dialog always names a person, so who is being removed is the state;
+  // null is closed.
+  const [removing, setRemoving] = useState<Member | null>(null);
   const [entryDefaults, setEntryDefaults] = useState<{
     type: EntryType;
     userId?: string;
@@ -384,6 +388,28 @@ export function Session() {
     onSettled: () => reconcile(),
   });
 
+  /** Removing somebody is not optimistic either. It reads as destructive, so
+   * the roster must not show them gone until the server agrees they are —
+   * and the seat count the host is about to re-fill depends on the answer. */
+  const removeMember = useMutation({
+    mutationKey: ['game', id, 'write'],
+    mutationFn: (userId: string) =>
+      serialize(`game:${id}:roster`, () =>
+        api.removeMember(id!, userId, queryClient.getQueryData<Game>(['game', id])?.version),
+      ),
+    onSuccess: (next, userId) => {
+      queryClient.setQueryData<Game>(['game', id], next);
+      const gone = next.members.find((m) => m.user_id === userId);
+      if (selectedUserId === userId) setSelectedUserId(null);
+      setNotice({
+        text: gone?.departed_unsettled
+          ? `${gone.display_name} is off the table — still unsettled, so their entries stay in the ledger.`
+          : `${gone?.display_name ?? 'They'} is off the table. Everything they logged stays in the ledger.`,
+      });
+    },
+    onSettled: () => reconcile(),
+  });
+
   // Close is the one write that is NOT optimistic: it writes the settlement
   // snapshot people hand over cash against, so the screen shows the server's
   // answer and nothing sooner.
@@ -465,6 +491,8 @@ export function Session() {
   const next = NEXT_STATE[shown.state];
   const syncing = writesInFlight > 0 || optimistic.length > 0 || Object.keys(inflight).length > 0;
   const seated = shown.members.filter((m) => !m.departed_at).length;
+  // The same window the server allows: a finished game's roster is history.
+  const canManageSeats = isHost && shown.state !== 'closed' && shown.state !== 'abandoned';
   const joinLink = `${window.location.origin}/join/${shown.join_code}`;
 
   return (
@@ -496,6 +524,13 @@ export function Session() {
             }
           />
         )}
+        <RemovePlayer
+          open={!!removing}
+          onOpenChange={(open) => !open && setRemoving(null)}
+          member={removing}
+          entries={shown.entries}
+          onRemove={(userId) => removeMember.mutateAsync(userId)}
+        />
         {isHost && shown.state !== 'closed' && shown.state !== 'abandoned' && (
           <TransferHost
             open={transferOpen}
@@ -669,6 +704,7 @@ export function Session() {
               selectedUserId={selectedUserId}
               onSelect={setSelectedUserId}
               reconciling={syncing}
+              onRemove={canManageSeats ? setRemoving : undefined}
             />
           </section>
 

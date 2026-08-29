@@ -85,7 +85,7 @@ Concretely, lean into:
 - **Density.** Show twenty ledger rows at once. Whitespace that feels generous on a phone wastes a laptop screen and forces scrolling through data users are trying to compare.
 - **Keyboard entry.** Someone reconciling a session enters many amounts in sequence. Every entry form is fully keyboard-operable: `Tab` moves through fields, `Enter` submits and immediately focuses the next row's first input, `Esc` cancels. If a task requires reaching for the mouse between entries, the design has failed.
 - **Multi-column layout.** Session detail sits beside the running settlement, so the effect of a verification is visible without navigation.
-- **Hover affordances.** Row actions (verify, reject, void) appear on hover rather than occupying permanent space.
+- **Hover affordances.** Row actions (verify, reject, void, and removing a player from the ledger row) appear on hover rather than occupying permanent space — revealed on focus too, so the keyboard reaches them.
 - **Inline amend.** Correcting a mistyped buy-in happens in the table cell, not in a modal — remembering that an amend creates a *new* pending row rather than editing the old one, and the table must show both.
 
 ## Keyboard shortcuts
@@ -149,7 +149,7 @@ Never soften a loss. Rounding a downswing toward zero, or styling it in a gentle
 ## Screens
 
 - **Sessions list** — date, stake, player count, currency, total pot, reconciliation status. Sortable, filterable by date range and player.
-- **Session detail** — the primary screen. Ledger table (player, buy-ins, rebuys, cash-out, **live net**, pending), chips-on-table and settleable totals, host verification queue, settlement panel alongside.
+- **Session detail** — the primary screen. Ledger table (player, buy-ins, rebuys, cash-out, **live net**, pending) footed by a **total row**, chips-on-table and settleable totals, host verification queue, settlement panel alongside.
 - **Verification queue** — the host's working surface: every pending entry, oldest first, each with verify / reject / reject-with-note. One row at a time, keyboard-driven.
 - **Player profile** — lifetime net per currency with a cumulative net line chart over closed tables; **tables hosted**; and **every table sat at** (added 2026-08-24, from `GET /api/users/me/games`) with buy-ins, cash-outs and net per table, each expanding to the player's own entries in every state — a pending or rejected entry is listed, never counted.
 - **Settlement** — the ordered list of who pays whom, payout details, and a copy-to-clipboard summary for pasting into a group chat.
@@ -166,6 +166,16 @@ Every write lands on screen synchronously and the server is asked in the backgro
 - **Writes to the same resource are serialised** (`serialize(key, task)`): three rapid clicks reach the server in order; a second click on an in-flight row is a no-op. In-flight reads are cancelled before a write is applied.
 - **Reconcile on settle**: every mutation invalidates the game and settlement queries; a live game also polls every 5 s as a safety net under Realtime.
 - **Navigation renders the shell first** from whatever the cache knows (the sessions list summary), and session rows and nav links prefetch on hover/focus.
+
+## The total at the foot of the ledger (added 2026-08-29)
+
+The ledger table's foot totals its money columns, and the total of the **live net** column is the one that needs explaining rather than just printing. It is the reconciliation identity with its sign flipped, so over a night it says three different things, and the row names which one it is (`tableTotal` in `lib/ledger.ts`):
+
+- **Chips still out** — anyone whose last verified entry isn't a cash-out still holds chips, so the total is their value. A large negative number here is the table working, and it must never be dressed as a discrepancy.
+- **Balances** — everyone has cashed out and the total is zero.
+- **A gap** — everyone has cashed out and it isn't. Named `short`/`over` in the same words the settlement panel's reconciliation block uses, because it is the same number the close will gate on.
+
+In-play is decided before zero: a total that happens to land on zero while chips are out has coincided, not balanced. Pending is totalled beside the figure and never inside it, exactly as on a player's row.
 
 ## Live nets
 
