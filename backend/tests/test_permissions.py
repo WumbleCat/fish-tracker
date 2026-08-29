@@ -33,7 +33,9 @@ def test_guest_verify_is_403(client, make_registered):
         f"/api/entries/{entry['id']}/verify", json={}, headers=auth(guest["token"])
     )
     assert resp.status_code == 403
-    assert resp.json()["error"] == "guest_not_permitted"
+    # not_host, not guest_not_permitted: since 2026-08-29 a guest CAN be host,
+    # so the refusal is about this guest not being one, not about guests
+    assert resp.json()["error"] == "not_host"
 
 
 def test_guest_can_log_own_entries_only(client, make_registered):
@@ -45,7 +47,7 @@ def test_guest_can_log_own_entries_only(client, make_registered):
         client, guest["token"], game["id"], "buy_in", 2000,
         target_user_id=player["user_id"], expect=403,
     )
-    assert resp["error"] == "guest_not_permitted"
+    assert resp["error"] == "not_host"
 
 
 def test_host_can_log_on_behalf(client, make_registered):
@@ -58,20 +60,32 @@ def test_host_can_log_on_behalf(client, make_registered):
     assert entry["logged_by"] == str(host["user_id"])
 
 
-def test_guest_is_refused_host_transfer_and_cannot_receive_it(client, make_registered):
+def test_a_guest_may_be_handed_the_game_but_cannot_take_it(client, make_registered):
+    """Since 2026-08-29 a guest can be handed the game by the host. What they
+    still cannot do is take it, or hand it on while they are not the host."""
     host, player, guest, game = _game_with_player_and_guest(client, make_registered)
-    resp = client.post(
+
+    grab = client.post(
+        f"/api/games/{game['id']}/transfer-host",
+        json={"user_id": guest["user_id"]},
+        headers=auth(guest["token"]),
+    )
+    assert grab.status_code == 403
+    assert grab.json()["error"] == "not_host"
+
+    handed = client.post(
         f"/api/games/{game['id']}/transfer-host",
         json={"user_id": guest["user_id"]},
         headers=auth(host),
     )
-    assert resp.status_code == 403
-    assert resp.json()["error"] == "guest_not_permitted"
-    # a registered player is eligible
+    assert handed.status_code == 200
+    assert handed.json()["host_id"] == guest["user_id"]
+
+    # and a registered player is still eligible, from the guest host onward
     resp = client.post(
         f"/api/games/{game['id']}/transfer-host",
         json={"user_id": str(player["user_id"])},
-        headers=auth(host),
+        headers=auth(guest["token"]),
     )
     assert resp.status_code == 200
     assert resp.json()["host_id"] == str(player["user_id"])

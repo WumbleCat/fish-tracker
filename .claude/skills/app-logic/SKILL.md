@@ -35,7 +35,7 @@ Two kinds of player, one ledger.
 | Created by | Sign-up (email + password, or magic link) via Supabase Auth | Entering a display name against a join code |
 | Persists across games | Yes | No — scoped to the one game |
 | Lifetime history | Yes | No |
-| Can host | Yes | Never |
+| Can host | Yes | Only if the host hands them the game (2026-08-29) |
 | Can verify | Only if host | Never |
 | Can log own entries | Yes | Yes |
 | Can store payout details | Yes | No |
@@ -53,10 +53,21 @@ Not everyone at the table will open the app. Someone's dad is playing, someone's
 - **The host logs their entries for them**, which the ledger already supports: the entry belongs to the player, the action to whoever performed it (`logged_by`). Every such entry is visibly logged by the host.
 - **Those entries are pending like every other claim.** The host logging a buy-in and the host verifying it are two acts, recorded separately, exactly as when the host logs their own. Never auto-verify a host-added player's entry because the host typed it — that reasoning applies equally to the host's own entries, and the rule there is already no.
 - A host-added player can be removed from the table like any member, and their entries stay in the ledger like any entries.
+- **They can never be handed the game.** Every other guest may now be (2026-08-29); this row cannot, because there is nobody holding it to act.
 
 Two people can share a display name; the app does not refuse it. A table with two Daves is the host's problem to name, not a state worth making unrepresentable.
 
-Guests never get host powers, including via host transfer. A game whose host has left and whose remaining players are all guests cannot be closed by the app — flag that rather than inventing a guest-promotion path.
+### A guest may be handed the game (decided 2026-08-29)
+
+The rule used to be that guests never hold host powers under any circumstance. It is now narrower: **the current host may hand the game to a guest**, deliberately, by name, the same way they would hand it to anyone. A weekly game often has one person with an account and five without, and the alternative was a table that could not be closed because the only eligible player went home.
+
+- It is a **transfer, never a promotion**. Nothing automatic: no majority claim, no "last player standing becomes host", no elevation on the host's absence. The host is present and chooses. The absent-host case remains deferred (2026-08-23) and is still not solved by this.
+- A **host-added player can never receive the game**, and that is not a preference. That row holds no credential (see **Host-added players**), so handing it the game strands the ledger with nobody able to verify or close it. The API refuses it and clients must not offer it.
+- A guest host holds **every** host power in that game — verify, reject, void, state changes, close, seat and remove players, and handing it on again. A half-host who can verify but not close is a game that jams at settlement.
+- What a guest host still cannot do is **hold payout details**: those belong to an identity that outlives the game, and theirs does not. A game hosted by a guest shows no host account block, and individual payees' details still render where they exist. Show nothing rather than an empty "pay the host" panel.
+- Host-ness survives a **claim**: a guest who signs up and claims their row keeps the game, because it is the same row gaining an identity.
+
+The host is still the person accountable for the numbers. Handing the game to someone who will be gone in an hour is a bad idea, and the app says so once, at the point of transfer — it does not refuse it.
 
 ## Roles
 
@@ -226,7 +237,7 @@ A player joining mid-game is normal, not an edge case. They join at `running`, a
 
 A player may leave a game only when their position is settled: all entries resolved, cash-out verified. A player with pending entries who leaves stays on the roster as `departed_unsettled` and blocks close until resolved.
 
-Host transfer must exist. Hosts go to the shop, or bust out and lose interest, and a game that can't be closed because one person left is a real failure. Any current **registered** player can be made host by the current host. Guests are never eligible. A majority-claim path for when the host is absent was considered and **deferred** (decided 2026-08-23) — v1 ships host-initiated transfer only; if an absent host strands a game, that is raised as product feedback rather than solved with an invented mechanism.
+Host transfer must exist. Hosts go to the shop, or bust out and lose interest, and a game that can't be closed because one person left is a real failure. Any current player who can sign in as themselves can be made host by the current host — registered, or a guest who joined with the code (2026-08-29). A **host-added player is never eligible**: it holds no credential, so the game would be left with nobody able to act. A majority-claim path for when the host is absent was considered and **deferred** (decided 2026-08-23) — v1 ships host-initiated transfer only; if an absent host strands a game, that is raised as product feedback rather than solved with an invented mechanism.
 
 ## Concurrency
 
@@ -252,7 +263,7 @@ Enforce on the server. Client-side checks are a UX affordance, not a control.
 - Edit own payout details: the owning registered user only
 - Read another player's payout details: only players in a shared unsettled or recently closed game
 - Change game state: host only
-- Transfer host: current host, to a registered player only
+- Transfer host: current host, to any seated player who can authenticate — registered, or a guest who joined with the code; never a host-added player
 - Close: host only, and only with zero pending entries
 
 ## Out of scope

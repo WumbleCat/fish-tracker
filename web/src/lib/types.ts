@@ -34,6 +34,9 @@ export interface Member {
   joined_at: string;
   departed_at: string | null;
   departed_unsettled: boolean;
+  /** Whether the host could hand them the game. The server decides it — a
+   * host-added player has no way to sign in, so it can never be them. */
+  can_host: boolean;
 }
 
 export interface PlayerNet {

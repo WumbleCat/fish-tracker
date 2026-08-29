@@ -70,13 +70,64 @@ def test_a_host_added_player_can_never_receive_it(client, make_registered):
     assert refused.json()["error"] == "guest_not_permitted"
 
 
-def test_a_guest_who_joined_is_equally_ineligible(client, make_registered):
+def test_a_guest_who_joined_can_be_handed_the_game(client, make_registered):
+    """They hold a token of their own, so somebody can still act as host
+    (app-logic, 2026-08-29). Every host power comes with it."""
     host = make_registered("host@test.local", "Host")
     game = to_running(client, host, create_game(client, host))
     guest = guest_join(client, game["join_code"], "Guest")
 
-    refused = _transfer(client, host, game["id"], guest["user_id"], expect=403)
-    assert refused.json()["error"] == "guest_not_permitted"
+    after = _transfer(client, host, game["id"], guest["user_id"]).json()
+    assert after["host_id"] == guest["user_id"]
+
+    # the guest host verifies, and the demoted registered host no longer can
+    entry = client.post(
+        f"/api/games/{game['id']}/entries",
+        json={"entry_type": "buy_in", "amount_minor": 4000},
+        headers=auth(host),
+    ).json()
+    refused = client.post(
+        f"/api/entries/{entry['id']}/verify", json={}, headers=auth(host)
+    )
+    assert refused.status_code == 403
+    verified = client.post(
+        f"/api/entries/{entry['id']}/verify", json={}, headers=auth(guest["token"])
+    )
+    assert verified.status_code == 200, verified.text
+    assert verified.json()["verified_by"] == guest["user_id"]
+
+
+def test_a_guest_host_can_close_the_game(client, make_registered):
+    """A half-host who can verify but not close is a table that jams at
+    settlement, so the whole set of powers travels with the game."""
+    host = make_registered("host@test.local", "Host")
+    game = to_running(client, host, create_game(client, host))
+    guest = guest_join(client, game["join_code"], "Guest")
+    _transfer(client, host, game["id"], guest["user_id"])
+
+    logged = client.post(
+        f"/api/games/{game['id']}/entries",
+        json={"entry_type": "buy_in", "amount_minor": 4000},
+        headers=auth(guest["token"]),
+    ).json()
+    client.post(f"/api/entries/{logged['id']}/verify", json={}, headers=auth(guest["token"]))
+    out = client.post(
+        f"/api/games/{game['id']}/entries",
+        json={"entry_type": "cash_out", "amount_minor": 4000},
+        headers=auth(guest["token"]),
+    ).json()
+    client.post(f"/api/entries/{out['id']}/verify", json={}, headers=auth(guest["token"]))
+
+    to_settling = client.post(
+        f"/api/games/{game['id']}/state", json={"to": "settling"}, headers=auth(guest["token"])
+    )
+    assert to_settling.status_code == 200, to_settling.text
+    closed = client.post(
+        f"/api/games/{game['id']}/close",
+        json={"acknowledge_discrepancy": False},
+        headers=auth(guest["token"]),
+    )
+    assert closed.status_code == 200, closed.text
 
 
 def test_someone_who_has_left_the_table_cannot_be_handed_it(client, make_registered):
@@ -100,3 +151,17 @@ def test_a_stale_screen_is_refused_rather_than_guessing(client, make_registered)
     stale = game["version"] - 1
     refused = _transfer(client, host, game["id"], player["user_id"], stale, expect=409)
     assert refused.json()["error"] == "version_conflict"
+
+
+def test_the_api_says_who_can_be_handed_the_game(client, make_registered):
+    """Clients render this rather than re-deriving it; two clients deriving
+    eligibility separately is two chances to offer a table nobody can run."""
+    host = make_registered("host@test.local", "Host")
+    player = make_registered("p@test.local", "Sam")
+    game = to_running(client, host, create_game(client, host))
+    join(client, player, game["join_code"])
+    guest = guest_join(client, game["join_code"], "Guest")
+    after = add_player(client, host, game["id"], "Dave")
+
+    can_host = {m["display_name"]: m["can_host"] for m in after["members"]}
+    assert can_host == {"Host": True, "Sam": True, "Guest": True, "Dave": False}

@@ -16,7 +16,7 @@ export function transferHostErrorMessage(e: unknown): string {
   if (e instanceof ApiError) {
     switch (e.code) {
       case 'guest_not_permitted':
-        return 'Guests can never host — pick a signed-in player.';
+        return "You added that player yourself, so they have no way to sign in and hold the game.";
       case 'not_host':
         return 'Only the host can hand the game over.';
       case 'game_closed':
@@ -30,10 +30,12 @@ export function transferHostErrorMessage(e: unknown): string {
   return "Couldn't hand over the game — try again.";
 }
 
-/** Registered, still seated, and not the host already. Guests are never
- * eligible, including via transfer. */
+/** Still seated, not the host already, and able to sign in as themselves —
+ * `can_host` is the server's answer, so the two clients cannot drift on it.
+ * A guest who joined with the code qualifies (app-logic, 2026-08-29); a
+ * player the host added does not. */
 export function eligibleHosts(members: Member[], hostId: string): Member[] {
-  return members.filter((m) => !m.departed_at && !m.is_guest && m.user_id !== hostId);
+  return members.filter((m) => !m.departed_at && m.can_host && m.user_id !== hostId);
 }
 
 export function TransferHost({
@@ -93,8 +95,8 @@ export function TransferHost({
           {eligible.length === 0 ? (
             // absence with a reason, not a disabled list
             <p className="mt-3 text-sm text-neutral-600">
-              Nobody at this table can take it. Only signed-in players can host — a guest never
-              can, however long they've been playing.
+              Nobody here can take it. Everyone else at this table was added by you, so they
+              have no way to sign in and hold the game — a guest who joins with the code can.
             </p>
           ) : (
             <form
