@@ -80,3 +80,52 @@ describe('logging for someone else', () => {
     expect(screen.getByTestId('entry-error')).toBeTruthy();
   });
 });
+
+/** Chips on and chips off must not look interchangeable. The sheet is where
+ * the amount is typed, so a person who reached for a rebuy and is about to
+ * log a cash-out has one last chance to notice. */
+describe('telling the two directions apart', () => {
+  const flat = (style: unknown) =>
+    (Array.isArray(style) ? Object.assign({}, ...style) : style) as Record<string, unknown>;
+
+  it('does not give cash-out the same selected colour as a buy-in', async () => {
+    await show({ defaultType: 'buy_in' });
+    const buyInTone = flat(screen.getByTestId('type-buy_in').props.style).backgroundColor;
+
+    await fireEvent.press(screen.getByTestId('type-cash_out'));
+    const cashOutTone = flat(screen.getByTestId('type-cash_out').props.style).backgroundColor;
+
+    expect(cashOutTone).not.toBe(buyInTone);
+  });
+
+  it('sets the cash-out control apart from the buy-in pair by more than colour', async () => {
+    await show();
+
+    const buyIn = flat(screen.getByTestId('type-buy_in').props.style);
+    const cashOut = flat(screen.getByTestId('type-cash_out').props.style);
+
+    expect(cashOut.marginLeft).toBeGreaterThan(Number(buyIn.marginLeft ?? 0));
+    expect(cashOut.flex).toBeGreaterThan(Number(buyIn.flex));
+  });
+
+  it('carries the direction through to the button that actually logs it', async () => {
+    await show({ defaultType: 'rebuy' });
+    const rebuyConfirm = flat(screen.getByTestId('entry-confirm').props.style).backgroundColor;
+
+    await fireEvent.press(screen.getByTestId('type-cash_out'));
+    const cashOutConfirm = flat(screen.getByTestId('entry-confirm').props.style).backgroundColor;
+
+    expect(cashOutConfirm).not.toBe(rebuyConfirm);
+    expect(screen.getByText(/Log cash-out/)).toBeTruthy();
+  });
+
+  it('still refuses to pre-fill a cash-out, however obvious the button is', async () => {
+    const onSubmit = await show({ defaultType: 'rebuy' });
+
+    await fireEvent.press(screen.getByTestId('type-cash_out'));
+    await fireEvent.press(screen.getByTestId('entry-confirm'));
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByTestId('entry-error')).toBeTruthy();
+  });
+});

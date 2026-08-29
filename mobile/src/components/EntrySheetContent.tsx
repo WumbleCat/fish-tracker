@@ -24,6 +24,14 @@ const TYPES: { value: EntryType; label: string }[] = [
   { value: 'cash_out', label: 'Cash-out' },
 ];
 
+/** Chips on is mint, chips off is amber — the same pair the game screen's two
+ * primary buttons use, so the sheet doesn't rename what was just pressed.
+ * Colour is never the only signal: the cash-out control is also set apart
+ * from the buy-in pair, sized differently, and carries its own word. */
+const ON = '#059669';
+const OFF = '#b45309';
+const toneFor = (t: EntryType) => (t === 'cash_out' ? OFF : ON);
+
 export function EntrySheetContent({
   currency,
   exponent,
@@ -124,15 +132,28 @@ export function EntrySheetContent({
             testID={`type-${t.value}`}
             onPress={() => changeType(t.value)}
             style={{
-              flex: 1,
-              minHeight: 44,
+              flex: t.value === 'cash_out' ? 1.3 : 1,
+              // a gap before cash-out, so the two directions never read as
+              // three interchangeable pills in a row
+              marginLeft: t.value === 'cash_out' ? 8 : 0,
+              minHeight: 48,
               borderRadius: 10,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: entryType === t.value ? '#059669' : '#1a2620',
+              borderWidth: 1,
+              borderColor: entryType === t.value ? toneFor(t.value) : '#2a3a33',
+              backgroundColor: entryType === t.value ? toneFor(t.value) : '#1a2620',
             }}
           >
-            <Text style={{ color: '#e7ece9', fontWeight: '600' }}>{t.label}</Text>
+            <Text
+              style={{
+                color:
+                  entryType === t.value ? '#fff' : t.value === 'cash_out' ? '#fbbf24' : '#e7ece9',
+                fontWeight: '700',
+              }}
+            >
+              {t.label}
+            </Text>
           </Pressable>
         ))}
       </View>
@@ -202,7 +223,9 @@ export function EntrySheetContent({
         style={{
           height: 64,
           borderRadius: 14,
-          backgroundColor: '#059669',
+          // the confirm carries the colour of the type it will log, so the
+          // last thing pressed still says which direction the money went
+          backgroundColor: toneFor(entryType),
           alignItems: 'center',
           justifyContent: 'center',
         }}

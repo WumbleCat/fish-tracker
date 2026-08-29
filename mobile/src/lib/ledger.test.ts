@@ -1,5 +1,6 @@
 import {
   computePositions,
+  hasBoughtIn,
   pendingEntries,
   reconciliationDiscrepancy,
   sortNetsDescending,
@@ -175,5 +176,32 @@ describe('tableTotal', () => {
 
   it('reads an empty table as balanced', () => {
     expect(tableTotal([], []).status).toBe('balanced');
+  });
+});
+
+describe('hasBoughtIn', () => {
+  it('is false before a player has put anything in', () => {
+    expect(hasBoughtIn([entry('b', 'buy_in', 5000, 'verified')], 'a')).toBe(false);
+  });
+
+  it('counts a claim, not just a verified entry', () => {
+    expect(hasBoughtIn([entry('a', 'buy_in', 5000, 'pending')], 'a')).toBe(true);
+  });
+
+  it('ignores a rejected buy-in — that money was never on the table', () => {
+    expect(hasBoughtIn([entry('a', 'buy_in', 5000, 'rejected')], 'a')).toBe(false);
+  });
+
+  it('stays true after they cash out, because the next one is a rebuy', () => {
+    expect(
+      hasBoughtIn(
+        [entry('a', 'buy_in', 5000, 'verified'), entry('a', 'cash_out', 6000, 'verified')],
+        'a',
+      ),
+    ).toBe(true);
+  });
+
+  it('is false for nobody in particular', () => {
+    expect(hasBoughtIn([entry('a', 'buy_in', 5000, 'verified')], null)).toBe(false);
   });
 });

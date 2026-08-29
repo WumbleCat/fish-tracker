@@ -112,3 +112,17 @@ export function tableTotal(nets: PlayerNet[], entries: Entry[]): TableTotal {
     playersInPlayCount: inPlay.size,
   };
 }
+
+/** Whether this player has already put chips in this game — a claim counts,
+ * so somebody who logged a buy-in ten seconds ago is rebuying next, not
+ * buying in twice. Only used to label the primary action: the entry type is
+ * still the player's to change in the sheet. */
+export function hasBoughtIn(entries: Entry[], userId: string | null): boolean {
+  if (!userId) return false;
+  return entries.some(
+    (e) =>
+      e.user_id === userId &&
+      (e.entry_type === 'buy_in' || e.entry_type === 'rebuy') &&
+      (e.state === 'verified' || e.state === 'pending'),
+  );
+}
