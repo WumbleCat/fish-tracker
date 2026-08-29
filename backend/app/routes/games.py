@@ -68,6 +68,7 @@ def _game_out(session: Session, game: Game) -> GameOut:
                 joined_at=m.joined_at,
                 departed_at=m.departed_at,
                 departed_unsettled=m.departed_unsettled,
+                can_host=games_service.can_hold_host(m),
             )
             for m, u in members
         ],

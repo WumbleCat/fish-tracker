@@ -11,10 +11,12 @@ import { Modal, Pressable, ScrollView, View } from 'react-native';
 import type { Member } from '../lib/types';
 import { Text } from './Text';
 
-/** Registered, still seated, not the host already. A guest is never eligible,
- * including via transfer. */
+/** Still seated, not the host already, and able to sign in as themselves —
+ * `can_host` is the server's answer, so the two clients cannot drift on it.
+ * A guest who joined with the code qualifies (app-logic, 2026-08-29); a
+ * player the host added does not. */
 export function eligibleHosts(members: Member[], hostId: string): Member[] {
-  return members.filter((m) => !m.departed_at && !m.is_guest && m.user_id !== hostId);
+  return members.filter((m) => !m.departed_at && m.can_host && m.user_id !== hostId);
 }
 
 export function HandOverHost({
@@ -57,8 +59,8 @@ export function HandOverHost({
 
           {eligible.length === 0 ? (
             <Text testID="no-eligible-host" style={{ color: '#9fb0a8', fontSize: 15 }}>
-              Nobody at this table can take it. Only signed-in players can host — a guest never
-              can, however long they've been playing.
+              Nobody here can take it. Everyone else at this table was added by you, so they have
+              no way to sign in and hold the game — a guest who joins with the code can.
             </Text>
           ) : (
             <ScrollView style={{ maxHeight: 240 }}>

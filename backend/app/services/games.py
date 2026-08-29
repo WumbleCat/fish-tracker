@@ -73,10 +73,18 @@ def load_member_game(
     return game
 
 
+def can_hold_host(member: GameMember) -> bool:
+    """Whether this member could be handed the game: they need a way to sign
+    in as themselves. Registered users and guests who joined with the code
+    have one; a host-added player never will (app-logic, 2026-08-29)."""
+    return member.seated_by is None
+
+
 def require_host(session: Session, principal: Principal, game: Game) -> None:
-    if principal.is_guest:
-        # Guests are never hosts; distinct code so clients can phrase it.
-        raise AppError("guest_not_permitted", 403)
+    """Host is whoever the game says it is (app-logic, 2026-08-29). A guest
+    who was handed the game holds every host power in it. The guest check
+    that used to live here belonged to *becoming* host, not to being one, and
+    now sits in transfer_host where it can name the real rule."""
     if game.host_id != principal.user.id:
         raise not_host()
 
@@ -188,7 +196,13 @@ def add_player(
     session.add(player)
     session.flush()
     session.add(
-        GameMember(game_id=game.id, user_id=player.id, role=MemberRole.player)
+        GameMember(
+            game_id=game.id,
+            user_id=player.id,
+            role=MemberRole.player,
+            # the record of why this row can never be handed the game
+            seated_by=principal.user.id,
+        )
     )
     session.flush()
     return player
@@ -294,8 +308,10 @@ def transfer_host(
     target_user = session.get(User, new_host_id)
     if target_member is None or target_user is None or target_member.departed_at is not None:
         raise not_found("user")
-    if target_user.is_guest:
-        # Guests are never eligible, including via transfer.
+    if not can_hold_host(target_member):
+        # A host-added player holds no credential: hand them the game and
+        # nobody can ever act as host of it again. Guests who joined with the
+        # code are eligible (app-logic, 2026-08-29).
         raise AppError("guest_not_permitted", 403)
 
     old_member = session.get(GameMember, (game_id, game.host_id))

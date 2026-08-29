@@ -159,7 +159,7 @@ export default function GameScreen() {
         const code = (e as { code?: string }).code;
         setHandOverError(
           code === 'guest_not_permitted'
-            ? 'Guests can never host — pick a signed-in player.'
+            ? 'You added that player yourself — they have no way to sign in and hold the game.'
             : code === 'user_not_found'
               ? 'That player is no longer at the table.'
               : code === 'version_conflict'

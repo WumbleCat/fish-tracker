@@ -9,6 +9,7 @@ import { HandOverHost, eligibleHosts } from './HandOverHost';
 
 const member = (over: Partial<Member> & { user_id: string; display_name: string }): Member => ({
   is_guest: false,
+  can_host: true,
   role: 'player',
   joined_at: '2026-08-28T20:00:00Z',
   departed_at: null,
@@ -18,7 +19,13 @@ const member = (over: Partial<Member> & { user_id: string; display_name: string 
 
 const HOST = member({ user_id: 'u-host', display_name: 'Ravi', role: 'host' });
 const PLAYER = member({ user_id: 'u-sam', display_name: 'Sam' });
-const GUEST = member({ user_id: 'u-dave', display_name: 'Dave', is_guest: true });
+const GUEST = member({ user_id: 'u-kim', display_name: 'Kim', is_guest: true });
+const HOST_ADDED = member({
+  user_id: 'u-dave',
+  display_name: 'Dave',
+  is_guest: true,
+  can_host: false,
+});
 const LEFT = member({ user_id: 'u-jo', display_name: 'Jo', departed_at: '2026-08-28T21:00:00Z' });
 
 const show = async (members: Member[], props: Record<string, unknown> = {}) => {
@@ -38,18 +45,21 @@ const show = async (members: Member[], props: Record<string, unknown> = {}) => {
 };
 
 describe('who can be handed the game', () => {
-  it('is the registered players still at the table', () => {
-    expect(eligibleHosts([HOST, PLAYER, GUEST, LEFT], 'u-host')).toEqual([PLAYER]);
+  it('is everyone still seated who can sign in as themselves', () => {
+    expect(eligibleHosts([HOST, PLAYER, GUEST, HOST_ADDED, LEFT], 'u-host')).toEqual([
+      PLAYER,
+      GUEST,
+    ]);
   });
 
-  it('never lists a guest', async () => {
-    await show([HOST, PLAYER, GUEST]);
-    expect(screen.getByTestId('host-candidate-u-sam')).toBeTruthy();
+  it('lists a guest who joined with the code, not one the host added', async () => {
+    await show([HOST, GUEST, HOST_ADDED]);
+    expect(screen.getByTestId('host-candidate-u-kim')).toBeTruthy();
     expect(screen.queryByTestId('host-candidate-u-dave')).toBeNull();
   });
 
   it('says why nobody can take it, with no confirm to press', async () => {
-    await show([HOST, GUEST]);
+    await show([HOST, HOST_ADDED]);
     expect(screen.getByTestId('no-eligible-host')).toBeTruthy();
     expect(screen.queryByTestId('hand-over-confirm')).toBeNull();
   });

@@ -23,8 +23,8 @@ const game: Game = {
   closed_at: null,
   version: 1,
   members: [
-    { user_id: 'host-1', display_name: 'Alice', is_guest: false, role: 'host', joined_at: '', departed_at: null, departed_unsettled: false },
-    { user_id: 'guest-1', display_name: 'Charlie', is_guest: true, role: 'player', joined_at: '', departed_at: null, departed_unsettled: false },
+    { user_id: 'host-1', display_name: 'Alice', is_guest: false, can_host: true, role: 'host', joined_at: '', departed_at: null, departed_unsettled: false },
+    { user_id: 'guest-1', display_name: 'Charlie', is_guest: true, can_host: true, role: 'player', joined_at: '', departed_at: null, departed_unsettled: false },
   ],
   entries: [],
   nets: [],

@@ -74,7 +74,8 @@ def test_a_guest_cannot_seat_someone(client, make_registered):
         headers=auth(guest["token"]),
     )
     assert refused.status_code == 403
-    assert refused.json()["error"] == "guest_not_permitted"
+    # a guest who is not the host; a guest who IS the host may seat players
+    assert refused.json()["error"] == "not_host"
 
 
 def test_the_host_logs_their_buy_in_and_it_is_a_claim(client, make_registered):

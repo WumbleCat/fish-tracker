@@ -100,6 +100,9 @@ class MemberOut(BaseModel):
     joined_at: datetime
     departed_at: datetime | None
     departed_unsettled: bool
+    # Whether this member could be handed the game. The rule lives on the
+    # server so two clients cannot drift on who is eligible.
+    can_host: bool
 
 
 class PlayerNet(BaseModel):

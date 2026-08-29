@@ -12,6 +12,7 @@ import { TransferHost, eligibleHosts } from './TransferHost';
 
 const member = (over: Partial<Member> & { user_id: string; display_name: string }): Member => ({
   is_guest: false,
+  can_host: true,
   role: 'player',
   joined_at: '2026-08-28T20:00:00Z',
   departed_at: null,
@@ -21,7 +22,15 @@ const member = (over: Partial<Member> & { user_id: string; display_name: string 
 
 const HOST = member({ user_id: 'u-host', display_name: 'Ravi', role: 'host' });
 const PLAYER = member({ user_id: 'u-sam', display_name: 'Sam' });
-const GUEST = member({ user_id: 'u-dave', display_name: 'Dave', is_guest: true });
+// a guest who joined with the code holds a token — eligible since 2026-08-29
+const GUEST = member({ user_id: 'u-kim', display_name: 'Kim', is_guest: true });
+// a player the host seated: no credential, so the server says can_host false
+const HOST_ADDED = member({
+  user_id: 'u-dave',
+  display_name: 'Dave',
+  is_guest: true,
+  can_host: false,
+});
 const LEFT = member({
   user_id: 'u-jo',
   display_name: 'Jo',
@@ -45,19 +54,27 @@ const show = (members: Member[]) =>
 beforeEach(() => vi.clearAllMocks());
 
 describe('who can be handed the game', () => {
-  it('offers registered players who are still at the table', () => {
-    expect(eligibleHosts([HOST, PLAYER, GUEST, LEFT], 'u-host')).toEqual([PLAYER]);
+  it('offers everyone still seated who can sign in as themselves', () => {
+    expect(eligibleHosts([HOST, PLAYER, GUEST, HOST_ADDED, LEFT], 'u-host')).toEqual([
+      PLAYER,
+      GUEST,
+    ]);
   });
 
-  it('never offers a guest, however long they have played', () => {
-    show([HOST, PLAYER, GUEST]);
+  it('offers a guest who joined with the code', () => {
+    show([HOST, GUEST]);
+    expect(screen.getByLabelText('Kim')).toBeInTheDocument();
+  });
+
+  it('never offers a player the host added — nobody holds that row', () => {
+    show([HOST, PLAYER, HOST_ADDED]);
     expect(screen.getByLabelText('Sam')).toBeInTheDocument();
     expect(screen.queryByLabelText('Dave')).not.toBeInTheDocument();
   });
 
   it('says why nobody is eligible rather than showing an empty list', () => {
-    show([HOST, GUEST]);
-    expect(screen.getByText(/Only signed-in players can host/)).toBeInTheDocument();
+    show([HOST, HOST_ADDED]);
+    expect(screen.getByText(/added by you/)).toBeInTheDocument();
     expect(screen.queryByRole('radio')).not.toBeInTheDocument();
   });
 });
