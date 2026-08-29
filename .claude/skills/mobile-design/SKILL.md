@@ -57,7 +57,9 @@ Tokens go in `expo-secure-store`, never `AsyncStorage`. A guest token is scoped 
 
 Logging a buy-in is the only thing that has to be fast. Everything else can take a tap more.
 
-- **A persistent primary action.** From the game screen, one thumb-reachable button opens the entry sheet. It is reachable without a scroll, at the bottom of the screen, on any phone size.
+- **Two persistent primary actions (revised 2026-08-29).** The game screen's bottom bar holds **Buy in / Rebuy** and **Cash out** side by side, thumb-reachable without a scroll on any phone size. It was one generic "Log entry" button, which made the person choose the direction twice — once to open the sheet and again inside it — and named neither thing they came to do. The buy-in button is the wider one and labels itself for what this player is actually about to do (`hasBoughtIn` in `lib/ledger.ts`: their first is a buy-in, everything after is a rebuy).
+- **The two directions never look interchangeable.** Chips on is mint, chips off is amber, and the pair carries the same colours everywhere they appear — the bottom bar, the sheet's type control, and the confirm that actually logs it. Colour is never the only signal: the two differ in width, wording and, in the sheet, spacing that sets cash-out apart from the buy-in pair. Amber for cash-out reads as "this is the number that decides what you get paid", which is the care that entry deserves. This does not soften any cash-out rule — it is still typed in full, with no default and no one-tap chip.
+- **In `settling` the buy-in button is gone, not disabled.** No new buy-ins is a ledger rule, so cash-out takes the whole bar and the choice disappears with the option.
 - **Amount first.** The sheet opens with a large numeric keypad already focused and the stake pre-filled as the default. Common amounts (the stake, 2×, last amount used) are one-tap chips above the keypad.
 - **Two taps for the common case.** Open → confirm. A standard rebuy at the table stake should never need typing.
 - **Confirm with haptics.** A success haptic on submit, and the entry appears immediately in a pending treatment. Optimistic display is fine for your own pending entry; optimistic *verification* never is.
@@ -94,6 +96,7 @@ The game screen's main content is a per-player list: name, live net, and — sep
 - A player still in the game shows a negative net equal to their buy-ins. Don't blank it or dash it.
 - Subscribe to the game's entries via Supabase Realtime and use the event to invalidate the query cache; render what the refetch returns. Never compute a net from a Realtime payload — that's settlement logic in disguise.
 - Sort the list by net descending by default. People look at this to see who's up.
+- **The list is footed by a total** (added 2026-08-29): the live nets added up, with a line saying which of three things it means — chips still on the table while anyone's last verified entry isn't a cash-out, `✓ balances` at zero once everyone has cashed out, or `short`/`over` when it isn't, in the settle screen's own words. In-play is decided before zero; a zero total while chips are out has coincided, not balanced. Pending totals beside it, never inside it. Same derivation as desktop (`tableTotal` in `lib/ledger.ts`).
 
 ## Currency
 

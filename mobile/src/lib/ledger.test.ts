@@ -1,4 +1,11 @@
-import { computePositions, pendingEntries, reconciliationDiscrepancy, sortNetsDescending } from './ledger';
+import {
+  computePositions,
+  hasBoughtIn,
+  pendingEntries,
+  reconciliationDiscrepancy,
+  sortNetsDescending,
+  tableTotal,
+} from './ledger';
 import type { Entry, EntryState, EntryType, PlayerNet } from './types';
 
 let seq = 0;
@@ -79,5 +86,122 @@ describe('pendingEntries', () => {
     const mid = entry('b', 'buy_in', 200, 'verified');
     const second = entry('b', 'rebuy', 300, 'pending');
     expect(pendingEntries([second, mid, first]).map((e) => e.id)).toEqual([first.id, second.id]);
+  });
+});
+
+describe('tableTotal', () => {
+  const net = (userId: string, settleable: number, pending = 0): PlayerNet => ({
+    user_id: userId,
+    settleable_minor: settleable,
+    pending_delta_minor: pending,
+    pending_count: pending === 0 ? 0 : 1,
+  });
+
+  it('reads a table mid-game as chips still out, not as a discrepancy', () => {
+    const total = tableTotal(
+      [net('a', -5000), net('b', -5000)],
+      [entry('a', 'buy_in', 5000, 'verified'), entry('b', 'buy_in', 5000, 'verified')],
+    );
+    expect(total.totalNetMinor).toBe(-10000);
+    expect(total.status).toBe('in-play');
+    expect(total.playersInPlayCount).toBe(2);
+  });
+
+  it('balances once everybody has a verified cash-out', () => {
+    const total = tableTotal(
+      [net('a', 3000), net('b', -3000)],
+      [
+        entry('a', 'buy_in', 5000, 'verified'),
+        entry('b', 'buy_in', 5000, 'verified'),
+        entry('a', 'cash_out', 8000, 'verified'),
+        entry('b', 'cash_out', 2000, 'verified'),
+      ],
+    );
+    expect(total.status).toBe('balanced');
+  });
+
+  it('names a gap once nobody holds chips and the total still is not zero', () => {
+    const total = tableTotal(
+      [net('a', 3000), net('b', -4000)],
+      [
+        entry('a', 'buy_in', 5000, 'verified'),
+        entry('b', 'buy_in', 5000, 'verified'),
+        entry('a', 'cash_out', 8000, 'verified'),
+        entry('b', 'cash_out', 1000, 'verified'),
+      ],
+    );
+    expect(total.totalNetMinor).toBe(-1000);
+    expect(total.status).toBe('gap');
+  });
+
+  it('does not call a table balanced while chips are still out', () => {
+    // a is still playing; b's overpaid cash-out happens to cancel her buy-in
+    const total = tableTotal(
+      [net('a', -5000), net('b', 5000)],
+      [
+        entry('a', 'buy_in', 5000, 'verified'),
+        entry('b', 'buy_in', 5000, 'verified'),
+        entry('b', 'cash_out', 10000, 'verified'),
+      ],
+    );
+    expect(total.totalNetMinor).toBe(0);
+    expect(total.status).toBe('in-play');
+  });
+
+  it('counts a player who rebought after cashing out as back in play', () => {
+    const total = tableTotal(
+      [net('a', -4000)],
+      [
+        entry('a', 'buy_in', 5000, 'verified'),
+        entry('a', 'cash_out', 6000, 'verified'),
+        entry('a', 'rebuy', 5000, 'verified'),
+      ],
+    );
+    expect(total.status).toBe('in-play');
+  });
+
+  it('keeps pending out of the total and beside it', () => {
+    const total = tableTotal(
+      [net('a', 0), net('b', 0, -4000)],
+      [
+        entry('a', 'buy_in', 5000, 'verified'),
+        entry('a', 'cash_out', 5000, 'verified'),
+        entry('b', 'buy_in', 4000, 'pending'),
+      ],
+    );
+    expect(total.totalNetMinor).toBe(0);
+    expect(total.totalPendingMinor).toBe(-4000);
+    expect(total.status).toBe('balanced'); // a claim is not a chip position
+  });
+
+  it('reads an empty table as balanced', () => {
+    expect(tableTotal([], []).status).toBe('balanced');
+  });
+});
+
+describe('hasBoughtIn', () => {
+  it('is false before a player has put anything in', () => {
+    expect(hasBoughtIn([entry('b', 'buy_in', 5000, 'verified')], 'a')).toBe(false);
+  });
+
+  it('counts a claim, not just a verified entry', () => {
+    expect(hasBoughtIn([entry('a', 'buy_in', 5000, 'pending')], 'a')).toBe(true);
+  });
+
+  it('ignores a rejected buy-in — that money was never on the table', () => {
+    expect(hasBoughtIn([entry('a', 'buy_in', 5000, 'rejected')], 'a')).toBe(false);
+  });
+
+  it('stays true after they cash out, because the next one is a rebuy', () => {
+    expect(
+      hasBoughtIn(
+        [entry('a', 'buy_in', 5000, 'verified'), entry('a', 'cash_out', 6000, 'verified')],
+        'a',
+      ),
+    ).toBe(true);
+  });
+
+  it('is false for nobody in particular', () => {
+    expect(hasBoughtIn([entry('a', 'buy_in', 5000, 'verified')], null)).toBe(false);
   });
 });

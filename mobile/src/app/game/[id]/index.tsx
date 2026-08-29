@@ -14,6 +14,7 @@ import { BlindsRow } from '../../../components/BlindsRow';
 import { EntrySheetContent } from '../../../components/EntrySheetContent';
 import { HandOverHost } from '../../../components/HandOverHost';
 import { NetList } from '../../../components/NetList';
+import { RemovePlayer } from '../../../components/RemovePlayer';
 import { OfflineBanner } from '../../../components/OfflineBanner';
 import { api } from '../../../lib/api';
 import { useAuth } from '../../../lib/auth';
@@ -21,6 +22,7 @@ import { confirmHaptic } from '../../../lib/haptics';
 import { useOnline, sendQueuedEntry } from '../../../lib/online';
 import { useGame, useGameRealtime, useMe } from '../../../lib/queries';
 import { useEntryQueue } from '../../../lib/queue';
+import { hasBoughtIn } from '../../../lib/ledger';
 import type { EntryType } from '../../../lib/types';
 
 function newClientKey(): string {
@@ -46,6 +48,9 @@ export default function GameScreen() {
   // who the sheet opens for: null is "me", a user id is the host logging on
   // a seated player's behalf
   const [sheetTarget, setSheetTarget] = useState<string | null>(null);
+  // which entry the button that opened the sheet was for; the sheet still
+  // lets it be changed, this only decides what it opens on
+  const [sheetType, setSheetType] = useState<EntryType>('buy_in');
   const [addOpen, setAddOpen] = useState(false);
   const [addName, setAddName] = useState('');
   const [adding, setAdding] = useState(false);
@@ -53,6 +58,9 @@ export default function GameScreen() {
   const [handOverOpen, setHandOverOpen] = useState(false);
   const [handingOver, setHandingOver] = useState(false);
   const [handOverError, setHandOverError] = useState<string | null>(null);
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
   const sheetRef = useRef<BottomSheet>(null);
   const snapPoints = useMemo(() => ['85%'], []);
 
@@ -173,6 +181,35 @@ export default function GameScreen() {
     [handingOver, id, game?.version, invalidate],
   );
 
+  const removeMember = useCallback(
+    async (userId: string) => {
+      if (removing) return;
+      setRemoving(true);
+      setRemoveError(null);
+      try {
+        await api.removeMember(id!, userId, game?.version);
+        setRemoveOpen(false);
+        invalidate();
+      } catch (e: unknown) {
+        const code = (e as { code?: string }).code;
+        setRemoveError(
+          code === 'host_must_transfer_first'
+            ? 'You can’t remove yourself while you hold the game — hand it over first.'
+            : code === 'user_not_found'
+              ? 'They’re not at this table.'
+              : code === 'game_closed'
+                ? 'This game is finished — its roster doesn’t change any more.'
+                : code === 'version_conflict'
+                  ? 'The table changed while this was open — check it and try again.'
+                  : "Couldn't remove them — try again.",
+        );
+      } finally {
+        setRemoving(false);
+      }
+    },
+    [removing, id, game?.version, invalidate],
+  );
+
   if (!game) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -183,6 +220,8 @@ export default function GameScreen() {
 
   const { currency, currency_exponent: exponent } = game;
   const canLog = game.state === 'running' || game.state === 'settling';
+  // labels the primary action for what this player is actually about to do
+  const boughtIn = hasBoughtIn(game.entries, meId);
 
   return (
     <View style={{ flex: 1 }}>
@@ -293,6 +332,21 @@ export default function GameScreen() {
               </Text>
             </Pressable>
           )}
+          {isHost && game.state !== 'closed' && game.state !== 'abandoned' && (
+            <Pressable
+              testID="remove-player"
+              onPress={() => {
+                setRemoveError(null);
+                setRemoveOpen(true);
+              }}
+              disabled={!online}
+              style={{ minHeight: 44, justifyContent: 'center' }}
+            >
+              <Text style={{ color: online ? '#9fb0a8' : '#5d6f66' }}>
+                Remove player{online ? '' : ' (offline)'}
+              </Text>
+            </Pressable>
+          )}
           <Pressable
             testID="entries-link"
             onPress={() => router.push(`/game/${id}/entries`)}
@@ -341,36 +395,86 @@ export default function GameScreen() {
 
         {game.entries.length === 0 && canLog && (
           <Text style={{ color: '#9fb0a8' }}>
-            No entries yet — log the first buy-in with the big button below.
+            No entries yet — tap Buy in below to log the first one.
           </Text>
         )}
       </ScrollView>
 
-      {/* The persistent primary action: bottom, thumb-reachable, any phone. */}
+      {/* The persistent primary actions: bottom, thumb-reachable, any phone.
+          Two buttons rather than one "Log entry", because at the table the
+          question is never "log something" — it is chips on or chips off, and
+          a single generic button made the person choose twice. They are told
+          apart by size, colour and word, never by colour alone: money going
+          on is the wide mint one, money coming off is the amber one. Amber
+          reads as "this is the number that decides what you get paid", which
+          is exactly the care a cash-out deserves.
+
+          In `settling` there are no new buy-ins (app-logic), so cash-out
+          takes the whole bar and the choice disappears with the option. */}
       {canLog && (
-        <Pressable
-          testID="open-entry-sheet"
-          onPress={() => sheetRef.current?.expand()}
+        <View
           style={{
             position: 'absolute',
             bottom: 24,
             left: 16,
             right: 16,
-            height: 64,
-            borderRadius: 16,
-            backgroundColor: '#059669',
-            alignItems: 'center',
-            justifyContent: 'center',
-            shadowColor: '#000',
-            shadowOpacity: 0.4,
-            shadowRadius: 8,
-            elevation: 6,
+            flexDirection: 'row',
+            gap: 12,
           }}
         >
-          <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800' }}>
-            {game.state === 'settling' ? 'Log cash-out' : 'Log entry'}
-          </Text>
-        </Pressable>
+          {game.state === 'running' && (
+            <Pressable
+              testID="open-entry-sheet"
+              accessibilityRole="button"
+              accessibilityLabel={boughtIn ? 'Log a rebuy' : 'Log a buy-in'}
+              onPress={() => {
+                setSheetType(boughtIn ? 'rebuy' : 'buy_in');
+                sheetRef.current?.expand();
+              }}
+              style={{
+                flex: 3,
+                height: 68,
+                borderRadius: 16,
+                backgroundColor: '#059669',
+                alignItems: 'center',
+                justifyContent: 'center',
+                shadowColor: '#000',
+                shadowOpacity: 0.4,
+                shadowRadius: 8,
+                elevation: 6,
+              }}
+            >
+              <Text style={{ color: '#fff', fontSize: 20, fontWeight: '800' }}>
+                {boughtIn ? '+ Rebuy' : '+ Buy in'}
+              </Text>
+              <Text style={{ color: '#bbf7d0', fontSize: 12 }}>chips on</Text>
+            </Pressable>
+          )}
+          <Pressable
+            testID="open-cash-out-sheet"
+            accessibilityRole="button"
+            accessibilityLabel="Log a cash-out"
+            onPress={() => {
+              setSheetType('cash_out');
+              sheetRef.current?.expand();
+            }}
+            style={{
+              flex: 2,
+              height: 68,
+              borderRadius: 16,
+              backgroundColor: '#b45309',
+              alignItems: 'center',
+              justifyContent: 'center',
+              shadowColor: '#000',
+              shadowOpacity: 0.4,
+              shadowRadius: 8,
+              elevation: 6,
+            }}
+          >
+            <Text style={{ color: '#fff', fontSize: 20, fontWeight: '800' }}>Cash out</Text>
+            <Text style={{ color: '#fde68a', fontSize: 12 }}>chips off</Text>
+          </Pressable>
+        </View>
       )}
 
       <BottomSheet
@@ -385,12 +489,12 @@ export default function GameScreen() {
           <EntrySheetContent
             // remounted when the target changes, so the sheet opens on the
             // player the host just seated rather than on whoever was last
-            key={sheetTarget ?? 'me'}
+            key={`${sheetTarget ?? 'me'}:${sheetType}`}
             currency={currency}
             exponent={exponent}
             stakeMinor={game.stake_minor}
             lastAmountMinor={lastAmount}
-            defaultType={game.state === 'settling' ? 'cash_out' : 'rebuy'}
+            defaultType={game.state === 'settling' ? 'cash_out' : sheetType}
             allowedTypes={game.state === 'settling' ? ['cash_out'] : ['buy_in', 'rebuy', 'cash_out']}
             seatFor={
               isHost
@@ -404,6 +508,17 @@ export default function GameScreen() {
           />
         </BottomSheetView>
       </BottomSheet>
+
+      <RemovePlayer
+        visible={removeOpen}
+        members={game.members}
+        hostId={game.host_id}
+        entries={game.entries}
+        pending={removing}
+        error={removeError}
+        onCancel={() => setRemoveOpen(false)}
+        onRemove={removeMember}
+      />
 
       <HandOverHost
         visible={handOverOpen}
