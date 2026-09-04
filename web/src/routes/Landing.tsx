@@ -5,11 +5,12 @@
  * either theme: this screen is the identity, not a surface. */
 
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { CODE_LENGTH, CodeTiles } from '../components/CodeTiles';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { useGames, useMe } from '../lib/queries';
 import { supabase } from '../lib/supabase';
 
 export function joinErrorMessage(e: unknown): string {
@@ -35,9 +36,67 @@ const field =
 const cardField =
   'w-full rounded-xl border border-felt-700 bg-white/5 px-4 py-3 text-base text-felt-100 placeholder:text-felt-600 focus:border-emerald-400 focus:outline-none sm:text-sm';
 
+
+/** Who the code will seat — signed in, there is no name to type, so say
+ * which name is going to appear at the table. */
+function SeatedAs() {
+  const { data: me } = useMe(true);
+  return (
+    <span className="text-[13px] text-felt-600">
+      seating you as{' '}
+      <span className="text-felt-300">{me?.display_name ?? 'your account'}</span>
+    </span>
+  );
+}
+
+/** The signed-in half of the front door: the way back to everything else.
+ * Deliberately a short list plus a link — this screen is for joining, and
+ * the full history lives at /sessions. */
+function YourTables() {
+  const { data: games } = useGames();
+  const recent = (games ?? []).slice(0, 3);
+
+  return (
+    <div className="rounded-2xl border border-felt-700 bg-white/[0.03] p-5">
+      <p className="mb-3 font-mono text-[10px] font-semibold tracking-[0.12em] text-felt-600">
+        YOUR TABLES
+      </p>
+      {recent.length === 0 ? (
+        <p className="text-[13px] text-felt-300">
+          No tables yet — start one from your sessions.
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {recent.map((g) => (
+            <li key={g.id} className="flex items-center gap-3">
+              <Link
+                to={`/session/${g.id}`}
+                className="min-w-0 flex-1 truncate text-[15px] text-felt-100 underline-offset-2 hover:underline"
+              >
+                {g.name}
+              </Link>
+              <span className="num shrink-0 text-[11px] text-felt-600">{g.state}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <Link
+        to="/sessions"
+        className="mt-4 flex h-11 items-center justify-center rounded-full bg-emerald-600 text-[15px] font-bold text-white hover:brightness-105"
+      >
+        All my sessions
+      </Link>
+    </div>
+  );
+}
+
 export function Landing({ initialCode = '' }: { initialCode?: string }) {
   const navigate = useNavigate();
-  const { startGuestSession } = useAuth();
+  const { status, startGuestSession } = useAuth();
+  // Signed in, the front door is a quick-join: they already have a name and
+  // an identity, so the code is the only thing left to type — and the join
+  // goes through the registered path, not the guest one.
+  const signedIn = status === 'registered';
 
   const [joinCode, setJoinCode] = useState(initialCode);
   const [guestName, setGuestName] = useState('');
@@ -51,7 +110,8 @@ export function Landing({ initialCode = '' }: { initialCode?: string }) {
   const [authError, setAuthError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
-  const ready = joinCode.length === CODE_LENGTH && guestName.trim().length > 0;
+  const ready =
+    joinCode.length === CODE_LENGTH && (signedIn || guestName.trim().length > 0);
 
   const handleGuestJoin = async (event: FormEvent) => {
     event.preventDefault();
@@ -59,6 +119,12 @@ export function Landing({ initialCode = '' }: { initialCode?: string }) {
     setJoinError(null);
     setJoining(true);
     try {
+      if (signedIn) {
+        // seated as themselves; no guest identity is created
+        const game = await api.joinGame(joinCode);
+        navigate(`/session/${game.id}`);
+        return;
+      }
       const result = await api.guestJoin(joinCode, guestName.trim());
       startGuestSession({
         token: result.token,
@@ -138,16 +204,18 @@ export function Landing({ initialCode = '' }: { initialCode?: string }) {
             </span>
           </div>
           <CodeTiles value={joinCode} onChange={setJoinCode} autoFocus={!initialCode} />
-          <input
-            required
-            value={guestName}
-            onChange={(e) => setGuestName(e.target.value)}
-            placeholder="Name at the table"
-            maxLength={60}
-            autoFocus={!!initialCode}
-            className={`${field} max-w-[400px]`}
-            aria-label="display name"
-          />
+          {!signedIn && (
+            <input
+              required
+              value={guestName}
+              onChange={(e) => setGuestName(e.target.value)}
+              placeholder="Name at the table"
+              maxLength={60}
+              autoFocus={!!initialCode}
+              className={`${field} max-w-[400px]`}
+              aria-label="display name"
+            />
+          )}
           {joinError && (
             <p role="alert" className="text-sm text-rose-400">
               {joinError}
@@ -162,21 +230,28 @@ export function Landing({ initialCode = '' }: { initialCode?: string }) {
             >
               Deal me in
             </button>
-            <span className="text-[13px] text-felt-600">
-              or{' '}
-              <button
-                type="button"
-                onClick={() => document.getElementById('signin-email')?.focus()}
-                className="text-emerald-400 underline underline-offset-2"
-              >
-                sign in
-              </button>{' '}
-              to host
-            </span>
+            {signedIn ? (
+              <SeatedAs />
+            ) : (
+              <span className="text-[13px] text-felt-600">
+                or{' '}
+                <button
+                  type="button"
+                  onClick={() => document.getElementById('signin-email')?.focus()}
+                  className="text-emerald-400 underline underline-offset-2"
+                >
+                  sign in
+                </button>{' '}
+                to host
+              </span>
+            )}
           </div>
         </form>
 
         <div className="flex w-full flex-col gap-3.5 lg:w-[300px] lg:shrink-0">
+          {signedIn ? (
+            <YourTables />
+          ) : (
           <form
             onSubmit={handleAuth}
             className="rounded-2xl border border-felt-700 bg-white/[0.03] p-5"
@@ -242,6 +317,7 @@ export function Landing({ initialCode = '' }: { initialCode?: string }) {
               </button>
             </div>
           </form>
+          )}
           <div className="flex flex-wrap gap-2">
             {['n new', '/ search', '? keys'].map((k) => (
               <span
